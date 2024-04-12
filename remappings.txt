@@ -1,2 +1,3 @@
 core/=lib/Core/src/
 v3-periphery/=lib/Core/lib/v3-periphery/contracts/
+v2-core/=lib/Core/lib/v2-core/contracts/
