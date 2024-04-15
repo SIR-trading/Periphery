@@ -14,7 +14,6 @@ import {IERC20} from "v2-core/interfaces/IERC20.sol";
 /** @dev More gas-efficient version of this contract would inherit SwapRouter rather than calling the external swapRouter
  */
 contract Assistant {
-    error ReceivedAmountTooLow(uint256 amount, uint256 minAmount);
     error VaultDoesNotExist();
 
     ISwapRouter public immutable swapRouter; // Uniswap V3 SwapRouter
@@ -30,17 +29,13 @@ contract Assistant {
     function mint(
         bool isAPE,
         VaultStructs.VaultParameters calldata vaultParams,
-        uint144 amountCollateral,
-        uint256 minTokens
+        uint144 amountCollateral
     ) external returns (uint256 amountTokens) {
         // Transfer collateral from user to vault
         TransferHelper.safeTransferFrom(vaultParams.collateralToken, msg.sender, address(vault), amountCollateral);
 
         // Mint TEA or APE
         amountTokens = vault.mint(isAPE, vaultParams);
-
-        // Unsatisfactory amount of tokens minted
-        if (amountTokens < minTokens) revert ReceivedAmountTooLow(amountTokens, minTokens);
     }
 
     /** @notice This contract must be approved to spend debt tokens
@@ -49,7 +44,7 @@ contract Assistant {
         bool isAPE,
         VaultStructs.VaultParameters calldata vaultParams,
         uint256 amountDebtToken,
-        uint256 minTokens,
+        uint256 minCollateral,
         uint24 uniswapFeeTier
     ) external returns (uint256 amountTokens) {
         // Transfer debt token from user to vault
@@ -67,29 +62,22 @@ contract Assistant {
                 recipient: address(vault),
                 deadline: block.timestamp,
                 amountIn: amountDebtToken,
-                amountOutMinimum: 0, // Min amount is enforced later
+                amountOutMinimum: minCollateral,
                 sqrtPriceLimitX96: 0
             })
         );
 
         // Mint TEA or APE
         amountTokens = vault.mint(isAPE, vaultParams);
-
-        // Unsatisfactory amount of tokens minted
-        if (amountTokens < minTokens) revert ReceivedAmountTooLow(amountTokens, minTokens);
     }
 
     function burn(
         bool isAPE,
         VaultStructs.VaultParameters calldata vaultParams,
-        uint256 amountTokens,
-        uint256 minCollateral
+        uint256 amountTokens
     ) external returns (uint144 amountCollateral) {
         // Burn TEA or APE
         amountCollateral = vault.burn(isAPE, vaultParams, amountTokens);
-
-        // Unsatisfactory amount of collateral received
-        if (amountCollateral < minCollateral) revert ReceivedAmountTooLow(amountCollateral, minCollateral);
 
         // Transfer collateral to user
         TransferHelper.safeTransfer(vaultParams.collateralToken, msg.sender, amountCollateral);
