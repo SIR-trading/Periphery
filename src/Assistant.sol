@@ -111,6 +111,44 @@ contract Assistant {
         );
     }
 
+    /** @notice It returns the ideal price of TEA if there were no fees for withdrawing.
+        @notice To get the price as [units of Collateral][per unit of TEA], divide num by den.
+     */
+    function priceOfTEA(
+        VaultStructs.VaultParameters calldata vaultParams
+    ) external view returns (uint256 num, uint256 den) {
+        // Get current reserves
+        VaultStructs.Reserves memory reserves = vault.getReserves(vaultParams);
+        num = reserves.reserveLPers;
+
+        // Get supply of TEA
+        (, , uint48 vaultId) = vault.vaultStates(
+            vaultParams.debtToken,
+            vaultParams.collateralToken,
+            vaultParams.leverageTier
+        );
+        den = vault.totalSupply(vaultParams.vaultId);
+    }
+
+    /** @notice It returns the ideal price of APE if there were no fees for withdrawing.
+        @notice To get the price as [units of Collateral][per unit of APE], divide num by den.
+     */
+    function priceOfAPE(
+        VaultStructs.VaultParameters calldata vaultParams
+    ) external view returns (uint256 num, uint256 den) {
+        // Get current reserves
+        VaultStructs.Reserves memory reserves = vault.getReserves(vaultParams);
+        num = reserves.reserveApes;
+
+        // Get supply of APE
+        (, , uint48 vaultId) = vault.vaultStates(
+            vaultParams.debtToken,
+            vaultParams.collateralToken,
+            vaultParams.leverageTier
+        );
+        den = IERC20(SaltedAddress.getAddress(address(vault), vaultId)).totalSupply();
+    }
+
     /*////////////////////////////////////////////////////////////////
                             SIMULATION FUNCTIONS
     ////////////////////////////////////////////////////////////////*/
