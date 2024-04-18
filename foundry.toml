@@ -3,4 +3,7 @@ src = "src"
 out = "out"
 libs = ["lib"]
 
+[rpc_endpoints]
+tarp_testnet = "https://docker-anvil-production-aa2c.up.railway.app/"
+
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
