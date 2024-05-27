@@ -14,6 +14,8 @@ import {IERC20} from "v2-core/interfaces/IERC20.sol";
 /** @dev More gas-efficient version of this contract would inherit SwapRouter rather than calling the external swapRouter
  */
 contract Assistant {
+    // ASSISTANT WOULD BENEFIT OF A SPECIAL FUNCTION FOR VANILLA ETH SO THAT THE USER DOES NOT NEED TO (UN)WRAP ETH INTO WETH
+
     error VaultDoesNotExist();
 
     ISwapRouter public immutable swapRouter; // Uniswap V3 SwapRouter

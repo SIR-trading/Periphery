@@ -4,6 +4,7 @@ out = "out"
 libs = ["lib"]
 
 [rpc_endpoints]
+mainnet = "https://mainnet.infura.io/v3/${RPC_MAINNET}"
 tarp_testnet = "https://docker-anvil-production-8d23.up.railway.app"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
