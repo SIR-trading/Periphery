@@ -127,7 +127,7 @@ contract Assistant {
             vaultParams.collateralToken,
             vaultParams.leverageTier
         );
-        den = vault.totalSupply(vaultParams.vaultId);
+        den = vault.totalSupply(vaultId);
     }
 
     /** @notice It returns the ideal price of APE if there were no fees for withdrawing.
@@ -159,7 +159,7 @@ contract Assistant {
         uint144 amountCollateral
     ) external view returns (uint256 amountTokens) {
         // Get all the parameters
-        (, uint16 baseFee, uint8 lpFee, , ) = vault.systemParams();
+        (, uint16 baseFee, uint16 lpFee, , ) = vault.systemParams();
         (, , uint48 vaultId) = vault.vaultStates(
             vaultParams.debtToken,
             vaultParams.collateralToken,
@@ -231,7 +231,7 @@ contract Assistant {
         uint256 amountTokens
     ) external view returns (uint144 amountCollateral) {
         // Get all the parameters
-        (, uint16 baseFee, uint8 lpFee, , ) = vault.systemParams();
+        (, uint16 baseFee, uint16 lpFee, , ) = vault.systemParams();
         (, , uint48 vaultId) = vault.vaultStates(
             vaultParams.debtToken,
             vaultParams.collateralToken,
