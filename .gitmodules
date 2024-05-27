@@ -4,3 +4,6 @@
 [submodule "lib/Core"]
 	path = lib/Core
 	url = https://github.com/SIR-trading/Core
+[submodule "lib/solmate"]
+	path = lib/solmate
+	url = https://github.com/transmissions11/solmate
