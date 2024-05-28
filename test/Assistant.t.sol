@@ -7,11 +7,13 @@ import {Addresses} from "core/libraries/Addresses.sol";
 import {Oracle} from "core/Oracle.sol";
 import {SystemControl} from "core/SystemControl.sol";
 import {SIR} from "core/SIR.sol";
+import {APE} from "core/APE.sol";
 import {Vault} from "core/Vault.sol";
 import {SystemConstants} from "core/libraries/SystemConstants.sol";
 import {VaultStructs} from "core/libraries/VaultStructs.sol";
 import {IWETH9} from "core/interfaces/IWETH9.sol";
 import {Assistant} from "src/Assistant.sol";
+import {SaltedAddress} from "core/libraries/SaltedAddress.sol";
 
 contract AssistantTest is Test {
     IWETH9 private constant WETH = IWETH9(Addresses.ADDR_WETH);
@@ -49,6 +51,8 @@ contract AssistantTest is Test {
         WETH.approve(address(assistant), type(uint256).max);
     }
 
+    /** @dev Important to run first quoteMint before mint changes the state of the Vault
+     */
     function testFuzz_mintFirstTime(
         bool isAPE,
         int8 leverageTier,
@@ -57,39 +61,28 @@ contract AssistantTest is Test {
         address user
     ) public {
         // Initialize vault
-        _initializeVault(leverageTier);
+        leverageTier = _initializeVault(leverageTier);
 
         // Bound WETH amounts
-        wethMinted = uint144(_bound(wethMinted, 0, ETH_SUPPLY));
-        wethDeposited = uint144(_bound(wethDeposited, 0, wethMinted));
+        wethMinted = uint144(_bound(wethMinted, 2, ETH_SUPPLY));
+        wethDeposited = uint144(_bound(wethDeposited, 2, wethMinted)); // Minimum amount that must be deposited is 2
 
         // Deal WETH
+        vm.assume(user != address(0));
         _dealWETH(user, wethDeposited);
 
+        // Get vault ID if TEA
+        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, leverageTier);
+
+        // Approve assistant to spend WETH
+        vm.prank(user);
+        WETH.approve(address(assistant), wethDeposited);
+
         // Mint TEA or APE and test it against quoteMint
+        bool expectRevert;
+        uint256 amountTokens;
         try
-            assistant.mint(
-                isAPE,
-                VaultStructs.VaultParameters({
-                    debtToken: Addresses.ADDR_USDT,
-                    collateralToken: Addresses.ADDR_WETH,
-                    leverageTier: leverageTier
-                }),
-                wethDeposited
-            )
-        returns (uint256 amountTokens) {
-            uint256 amountTokens_ = assistant.quoteMint(
-                isAPE,
-                VaultStructs.VaultParameters({
-                    debtToken: Addresses.ADDR_USDT,
-                    collateralToken: Addresses.ADDR_WETH,
-                    leverageTier: leverageTier
-                }),
-                wethDeposited
-            );
-            assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
-        } catch {
-            vm.expectRevert();
+            // Quote mint
             assistant.quoteMint(
                 isAPE,
                 VaultStructs.VaultParameters({
@@ -98,7 +91,29 @@ contract AssistantTest is Test {
                     leverageTier: leverageTier
                 }),
                 wethDeposited
-            );
+            )
+        returns (uint256 temp) {
+            expectRevert = false;
+            amountTokens = temp;
+        } catch {
+            expectRevert = true;
+            vm.expectRevert();
+        }
+
+        // Mint
+        vm.prank(user);
+        uint256 amountTokens_ = assistant.mint(
+            isAPE ? SaltedAddress.getAddress(address(vault), vaultId) : address(0),
+            vaultId,
+            VaultStructs.VaultParameters({
+                debtToken: Addresses.ADDR_USDT,
+                collateralToken: Addresses.ADDR_WETH,
+                leverageTier: leverageTier
+            }),
+            wethDeposited
+        );
+        if (!expectRevert) {
+            assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
         }
     }
 
@@ -119,6 +134,8 @@ contract AssistantTest is Test {
                 leverageTier: boundedLeverageTier
             })
         );
+
+        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, leverageTier);
     }
 
     function _dealWETH(address to, uint256 amount) private {

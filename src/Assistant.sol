@@ -10,11 +10,16 @@ import {FullMath} from "core/libraries/FullMath.sol";
 import {TransferHelper} from "core/libraries/TransferHelper.sol";
 import {ISwapRouter} from "v3-periphery/interfaces/ISwapRouter.sol";
 import {IERC20} from "v2-core/interfaces/IERC20.sol";
+import {ERC1155, ERC1155TokenReceiver} from "solmate/tokens/ERC1155.sol";
+
+import "forge-std/console.sol";
 
 /** @dev More gas-efficient version of this contract would inherit SwapRouter rather than calling the external swapRouter
+    @dev No burn function because the burn function in Vault can be called directly
  */
-contract Assistant {
+contract Assistant is ERC1155TokenReceiver {
     // ASSISTANT WOULD BENEFIT OF A SPECIAL FUNCTION FOR VANILLA ETH SO THAT THE USER DOES NOT NEED TO (UN)WRAP ETH INTO WETH
+    // COULD CONSIDER JUST PASSING vaultId TO VAULT MINT/BURN FUNCTIONS
 
     error VaultDoesNotExist();
 
@@ -29,7 +34,8 @@ contract Assistant {
     /** @notice This contract must be approved to spend collateral tokens
      */
     function mint(
-        bool isAPE,
+        address ape, // Address of the APE token, or address(0) if TEA
+        uint256 vaultId, // 0 if APE
         VaultStructs.VaultParameters calldata vaultParams,
         uint144 amountCollateral
     ) external returns (uint256 amountTokens) {
@@ -37,13 +43,25 @@ contract Assistant {
         TransferHelper.safeTransferFrom(vaultParams.collateralToken, msg.sender, address(vault), amountCollateral);
 
         // Mint TEA or APE
+        bool isAPE = ape != address(0);
         amountTokens = vault.mint(isAPE, vaultParams);
+
+        // Transfer tokens to user
+        if (isAPE) {
+            console.log("Got", amountTokens, "APE tokens");
+            console.log("APE bytecode contract length", ape.code.length);
+            console.log("Balance of this contract", IERC20(ape).balanceOf(address(this)));
+            IERC20(ape).transfer(msg.sender, amountTokens); // No need for TransferHelper because APE is our own token
+        } else {
+            ERC1155(address(vault)).safeTransferFrom(address(this), msg.sender, vaultId, amountTokens, "");
+        }
     }
 
     /** @notice This contract must be approved to spend debt tokens
      */
     function swapAndMint(
-        bool isAPE,
+        address ape, // Address of the APE token, or address(0) if TEA
+        uint256 vaultId, // 0 if APE
         VaultStructs.VaultParameters calldata vaultParams,
         uint256 amountDebtToken,
         uint256 minCollateral,
@@ -55,7 +73,7 @@ contract Assistant {
         // Approve swapRouter to spend debtToken from this contract
         TransferHelper.safeApprove(vaultParams.debtToken, address(swapRouter), amountDebtToken);
 
-        // Swap collateral for debt token, and send them to the vault
+        // Swap debt token for collateral AND send them to the vault
         swapRouter.exactInputSingle(
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: vaultParams.debtToken,
@@ -70,35 +88,42 @@ contract Assistant {
         );
 
         // Mint TEA or APE
+        bool isAPE = ape != address(0);
         amountTokens = vault.mint(isAPE, vaultParams);
-    }
 
-    function burn(
-        bool isAPE,
-        VaultStructs.VaultParameters calldata vaultParams,
-        uint256 amountTokens
-    ) external returns (uint144 amountCollateral) {
-        // Burn TEA or APE
-        amountCollateral = vault.burn(isAPE, vaultParams, amountTokens);
-
-        // Transfer collateral to user
-        TransferHelper.safeTransfer(vaultParams.collateralToken, msg.sender, amountCollateral);
+        // Transfer tokens to user
+        if (isAPE) {
+            IERC20(ape).transfer(msg.sender, amountTokens); // No need for TransferHelper because APE is our own token
+        } else {
+            ERC1155(address(vault)).safeTransferFrom(address(this), msg.sender, vaultId, amountTokens, "");
+        }
     }
 
     function burnAndSwap(
-        bool isAPE,
+        address ape, // Address of the APE token, or address(0) if TEA
+        uint256 vaultId, // 0 if APE
         VaultStructs.VaultParameters calldata vaultParams,
         uint256 amountTokens,
         uint256 minDebtToken,
         uint24 uniswapFeeTier
     ) external returns (uint256 amountDebtToken) {
+        // Are we burning APE or TEA?
+        bool isAPE = ape != address(0);
+
+        // Transfer tokens from user
+        if (isAPE) {
+            IERC20(ape).transferFrom(msg.sender, address(this), amountTokens); // No need for TransferHelper because APE is our own token
+        } else {
+            ERC1155(address(vault)).safeTransferFrom(msg.sender, address(this), vaultId, amountTokens, "");
+        }
+
         // Burn TEA or APE
         uint144 amountCollateral = vault.burn(isAPE, vaultParams, amountTokens);
 
         // Approve swapRouter to spend collateralToken from this contract
         TransferHelper.safeApprove(vaultParams.collateralToken, address(swapRouter), amountCollateral);
 
-        // Swap collateral for debt token, and send them to the user
+        // Swap collateral for debt token AND send them to the user
         amountDebtToken = swapRouter.exactOutputSingle(
             ISwapRouter.ExactOutputSingleParams({
                 tokenIn: vaultParams.collateralToken,
@@ -155,6 +180,9 @@ contract Assistant {
                             SIMULATION FUNCTIONS
     ////////////////////////////////////////////////////////////////*/
 
+    /** @dev Static function so we do not need to save on SLOADs
+        @return amountTokens that would be minted for a given amount of collateral
+     */
     function quoteMint(
         bool isAPE,
         VaultStructs.VaultParameters calldata vaultParams,
@@ -206,15 +234,19 @@ contract Assistant {
                 lpFee,
                 tax
             );
+            console.log("QUOTE MINT: collateralIn", collateralIn, "lpersFee", lpersFee);
+            console.log("polFee", polFee);
             reserves.reserveLPers += lpersFee;
 
             // Get supply of TEA
             uint256 supplyTEA = vault.totalSupply(vaultId);
 
             // POL
+            console.log("supplyTEA", supplyTEA, "polFee + reserves.reserveLPers", polFee + reserves.reserveLPers);
             uint256 amountPOL = supplyTEA == 0
                 ? _amountFirstMint(vaultParams.collateralToken, polFee + reserves.reserveLPers)
                 : FullMath.mulDiv(supplyTEA, polFee, reserves.reserveLPers);
+            console.log("amountPOL", amountPOL);
             supplyTEA += amountPOL;
 
             // LPer fees
@@ -224,9 +256,13 @@ contract Assistant {
             amountTokens = supplyTEA == 0
                 ? _amountFirstMint(vaultParams.collateralToken, collateralIn + reserves.reserveLPers)
                 : FullMath.mulDiv(supplyTEA, collateralIn, reserves.reserveLPers);
+            console.log("amountTokens", amountTokens);
         }
     }
 
+    /** @dev Static function so we do not need to save on SLOADs
+        @return amountCollateral that would be obtained by burning a given amount of collateral
+     */
     function quoteBurn(
         bool isAPE,
         VaultStructs.VaultParameters calldata vaultParams,
