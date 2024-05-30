@@ -14,7 +14,9 @@ import {ERC1155, ERC1155TokenReceiver} from "solmate/tokens/ERC1155.sol";
 
 import "forge-std/console.sol";
 
-/** @dev More gas-efficient version of this contract would inherit SwapRouter rather than calling the external swapRouter
+/** @notice This contract must be approved to spend tokens. I recommend requesting 2^256-1 token
+    @notice approval so that the user only needs to do it once per address.
+    @dev More gas-efficient version of this contract would inherit SwapRouter rather than calling the external swapRouter
     @dev No burn function because the burn function in Vault can be called directly
  */
 contract Assistant is ERC1155TokenReceiver {
@@ -31,7 +33,7 @@ contract Assistant is ERC1155TokenReceiver {
         vault = Vault(vault_);
     }
 
-    /** @notice This contract must be approved to spend collateral tokens
+    /** @notice This contract must be approved to spend collateral tokens.
      */
     function mint(
         address ape, // Address of the APE token, or address(0) if TEA
@@ -46,11 +48,8 @@ contract Assistant is ERC1155TokenReceiver {
         bool isAPE = ape != address(0);
         amountTokens = vault.mint(isAPE, vaultParams);
 
-        // Transfer tokens to user
+        // Because this contract called mint. The tokens are now here and need to be transfered to the user
         if (isAPE) {
-            console.log("Got", amountTokens, "APE tokens");
-            console.log("APE bytecode contract length", ape.code.length);
-            console.log("Balance of this contract", IERC20(ape).balanceOf(address(this)));
             IERC20(ape).transfer(msg.sender, amountTokens); // No need for TransferHelper because APE is our own token
         } else {
             ERC1155(address(vault)).safeTransferFrom(address(this), msg.sender, vaultId, amountTokens, "");
@@ -58,6 +57,7 @@ contract Assistant is ERC1155TokenReceiver {
     }
 
     /** @notice This contract must be approved to spend debt tokens
+        @notice This function requires knowing the market price of the debt token in terms of collateral to choose a sensible minDebtToken
      */
     function swapAndMint(
         address ape, // Address of the APE token, or address(0) if TEA
@@ -67,13 +67,13 @@ contract Assistant is ERC1155TokenReceiver {
         uint256 minCollateral,
         uint24 uniswapFeeTier
     ) external returns (uint256 amountTokens) {
-        // Transfer debt token from user to vault
-        TransferHelper.safeTransferFrom(vaultParams.debtToken, msg.sender, address(vault), amountDebtToken);
+        // Retrieve debt tokens from user
+        TransferHelper.safeTransferFrom(vaultParams.debtToken, msg.sender, address(this), amountDebtToken);
 
         // Approve swapRouter to spend debtToken from this contract
         TransferHelper.safeApprove(vaultParams.debtToken, address(swapRouter), amountDebtToken);
 
-        // Swap debt token for collateral AND send them to the vault
+        // Swap debt token for collateral AND send them to the vault directly
         swapRouter.exactInputSingle(
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: vaultParams.debtToken,
@@ -91,7 +91,7 @@ contract Assistant is ERC1155TokenReceiver {
         bool isAPE = ape != address(0);
         amountTokens = vault.mint(isAPE, vaultParams);
 
-        // Transfer tokens to user
+        // Because this contract called mint. The tokens are now here and need to be transfered to the user
         if (isAPE) {
             IERC20(ape).transfer(msg.sender, amountTokens); // No need for TransferHelper because APE is our own token
         } else {
@@ -181,6 +181,7 @@ contract Assistant is ERC1155TokenReceiver {
     ////////////////////////////////////////////////////////////////*/
 
     /** @dev Static function so we do not need to save on SLOADs
+        @dev If quoteMint reverts, mint will revert as well; vice versa is not true.
         @return amountTokens that would be minted for a given amount of collateral
      */
     function quoteMint(
@@ -234,19 +235,15 @@ contract Assistant is ERC1155TokenReceiver {
                 lpFee,
                 tax
             );
-            console.log("QUOTE MINT: collateralIn", collateralIn, "lpersFee", lpersFee);
-            console.log("polFee", polFee);
             reserves.reserveLPers += lpersFee;
 
             // Get supply of TEA
             uint256 supplyTEA = vault.totalSupply(vaultId);
 
             // POL
-            console.log("supplyTEA", supplyTEA, "polFee + reserves.reserveLPers", polFee + reserves.reserveLPers);
             uint256 amountPOL = supplyTEA == 0
                 ? _amountFirstMint(vaultParams.collateralToken, polFee + reserves.reserveLPers)
                 : FullMath.mulDiv(supplyTEA, polFee, reserves.reserveLPers);
-            console.log("amountPOL", amountPOL);
             supplyTEA += amountPOL;
 
             // LPer fees
@@ -256,11 +253,11 @@ contract Assistant is ERC1155TokenReceiver {
             amountTokens = supplyTEA == 0
                 ? _amountFirstMint(vaultParams.collateralToken, collateralIn + reserves.reserveLPers)
                 : FullMath.mulDiv(supplyTEA, collateralIn, reserves.reserveLPers);
-            console.log("amountTokens", amountTokens);
         }
     }
 
     /** @dev Static function so we do not need to save on SLOADs
+        @dev If quoteBurn reverts, burn in Vault.sol will revert as well; vice versa is not true.
         @return amountCollateral that would be obtained by burning a given amount of collateral
      */
     function quoteBurn(
