@@ -16,7 +16,7 @@ import "forge-std/console.sol";
 
 /** @notice This contract must be approved to spend tokens. I recommend requesting 2^256-1 token
     @notice approval so that the user only needs to do it once per address.
-    @dev More gas-efficient version of this contract would inherit SwapRouter rather than calling the external swapRouter
+    @dev More gas-efficient version of this contract would inherit SwapRouter rather than calling the external SWAP_ROUTER
     @dev No burn function because the burn function in Vault can be called directly
  */
 contract Assistant is ERC1155TokenReceiver {
@@ -25,12 +25,15 @@ contract Assistant is ERC1155TokenReceiver {
 
     error VaultDoesNotExist();
 
-    ISwapRouter public immutable swapRouter; // Uniswap V3 SwapRouter
-    Vault public immutable vault;
+    bytes32 public immutable HASH_CREATION_CODE_APE;
 
-    constructor(address swapRouter_, address vault_) {
-        swapRouter = ISwapRouter(swapRouter_);
-        vault = Vault(vault_);
+    ISwapRouter public immutable SWAP_ROUTER; // Uniswap V3 SwapRouter
+    Vault public immutable VAULT;
+
+    constructor(address swapRouter_, address vault_, bytes32 hashCreationCodeAPE) {
+        SWAP_ROUTER = ISwapRouter(swapRouter_);
+        VAULT = Vault(vault_);
+        HASH_CREATION_CODE_APE = hashCreationCodeAPE;
     }
 
     /** @notice This contract must be approved to spend collateral tokens.
@@ -41,18 +44,18 @@ contract Assistant is ERC1155TokenReceiver {
         VaultStructs.VaultParameters calldata vaultParams,
         uint144 amountCollateral
     ) external returns (uint256 amountTokens) {
-        // Transfer collateral from user to vault
-        TransferHelper.safeTransferFrom(vaultParams.collateralToken, msg.sender, address(vault), amountCollateral);
+        // Transfer collateral from user to VAULT
+        TransferHelper.safeTransferFrom(vaultParams.collateralToken, msg.sender, address(VAULT), amountCollateral);
 
         // Mint TEA or APE
         bool isAPE = ape != address(0);
-        amountTokens = vault.mint(isAPE, vaultParams);
+        amountTokens = VAULT.mint(isAPE, vaultParams);
 
         // Because this contract called mint. The tokens are now here and need to be transfered to the user
         if (isAPE) {
             IERC20(ape).transfer(msg.sender, amountTokens); // No need for TransferHelper because APE is our own token
         } else {
-            ERC1155(address(vault)).safeTransferFrom(address(this), msg.sender, vaultId, amountTokens, "");
+            ERC1155(address(VAULT)).safeTransferFrom(address(this), msg.sender, vaultId, amountTokens, "");
         }
     }
 
@@ -70,16 +73,16 @@ contract Assistant is ERC1155TokenReceiver {
         // Retrieve debt tokens from user
         TransferHelper.safeTransferFrom(vaultParams.debtToken, msg.sender, address(this), amountDebtToken);
 
-        // Approve swapRouter to spend debtToken from this contract
-        TransferHelper.safeApprove(vaultParams.debtToken, address(swapRouter), amountDebtToken);
+        // Approve SWAP_ROUTER to spend debtToken from this contract
+        TransferHelper.safeApprove(vaultParams.debtToken, address(SWAP_ROUTER), amountDebtToken);
 
-        // Swap debt token for collateral AND send them to the vault directly
-        swapRouter.exactInputSingle(
+        // Swap debt token for collateral AND send them to the VAULT directly
+        SWAP_ROUTER.exactInputSingle(
             ISwapRouter.ExactInputSingleParams({
                 tokenIn: vaultParams.debtToken,
                 tokenOut: vaultParams.collateralToken,
                 fee: uniswapFeeTier,
-                recipient: address(vault),
+                recipient: address(VAULT),
                 deadline: block.timestamp,
                 amountIn: amountDebtToken,
                 amountOutMinimum: minCollateral,
@@ -89,13 +92,13 @@ contract Assistant is ERC1155TokenReceiver {
 
         // Mint TEA or APE
         bool isAPE = ape != address(0);
-        amountTokens = vault.mint(isAPE, vaultParams);
+        amountTokens = VAULT.mint(isAPE, vaultParams);
 
         // Because this contract called mint. The tokens are now here and need to be transfered to the user
         if (isAPE) {
             IERC20(ape).transfer(msg.sender, amountTokens); // No need for TransferHelper because APE is our own token
         } else {
-            ERC1155(address(vault)).safeTransferFrom(address(this), msg.sender, vaultId, amountTokens, "");
+            ERC1155(address(VAULT)).safeTransferFrom(address(this), msg.sender, vaultId, amountTokens, "");
         }
     }
 
@@ -114,17 +117,17 @@ contract Assistant is ERC1155TokenReceiver {
         if (isAPE) {
             IERC20(ape).transferFrom(msg.sender, address(this), amountTokens); // No need for TransferHelper because APE is our own token
         } else {
-            ERC1155(address(vault)).safeTransferFrom(msg.sender, address(this), vaultId, amountTokens, "");
+            ERC1155(address(VAULT)).safeTransferFrom(msg.sender, address(this), vaultId, amountTokens, "");
         }
 
         // Burn TEA or APE
-        uint144 amountCollateral = vault.burn(isAPE, vaultParams, amountTokens);
+        uint144 amountCollateral = VAULT.burn(isAPE, vaultParams, amountTokens);
 
-        // Approve swapRouter to spend collateralToken from this contract
-        TransferHelper.safeApprove(vaultParams.collateralToken, address(swapRouter), amountCollateral);
+        // Approve SWAP_ROUTER to spend collateralToken from this contract
+        TransferHelper.safeApprove(vaultParams.collateralToken, address(SWAP_ROUTER), amountCollateral);
 
         // Swap collateral for debt token AND send them to the user
-        amountDebtToken = swapRouter.exactOutputSingle(
+        amountDebtToken = SWAP_ROUTER.exactOutputSingle(
             ISwapRouter.ExactOutputSingleParams({
                 tokenIn: vaultParams.collateralToken,
                 tokenOut: vaultParams.debtToken,
@@ -145,16 +148,16 @@ contract Assistant is ERC1155TokenReceiver {
         VaultStructs.VaultParameters calldata vaultParams
     ) external view returns (uint256 num, uint256 den) {
         // Get current reserves
-        VaultStructs.Reserves memory reserves = vault.getReserves(vaultParams);
+        VaultStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
         num = reserves.reserveLPers;
 
         // Get supply of TEA
-        (, , uint48 vaultId) = vault.vaultStates(
+        (, , uint48 vaultId) = VAULT.vaultStates(
             vaultParams.debtToken,
             vaultParams.collateralToken,
             vaultParams.leverageTier
         );
-        den = vault.totalSupply(vaultId);
+        den = VAULT.totalSupply(vaultId);
     }
 
     /** @notice It returns the ideal price of APE if there were no fees for withdrawing.
@@ -164,16 +167,16 @@ contract Assistant is ERC1155TokenReceiver {
         VaultStructs.VaultParameters calldata vaultParams
     ) external view returns (uint256 num, uint256 den) {
         // Get current reserves
-        VaultStructs.Reserves memory reserves = vault.getReserves(vaultParams);
+        VaultStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
         num = reserves.reserveApes;
 
         // Get supply of APE
-        (, , uint48 vaultId) = vault.vaultStates(
+        (, , uint48 vaultId) = VAULT.vaultStates(
             vaultParams.debtToken,
             vaultParams.collateralToken,
             vaultParams.leverageTier
         );
-        den = IERC20(SaltedAddress.getAddress(address(vault), vaultId)).totalSupply();
+        den = IERC20(SaltedAddress.getAddress(address(VAULT), vaultId)).totalSupply();
     }
 
     /*////////////////////////////////////////////////////////////////
@@ -190,8 +193,8 @@ contract Assistant is ERC1155TokenReceiver {
         uint144 amountCollateral
     ) external view returns (uint256 amountTokens) {
         // Get all the parameters
-        (, uint16 baseFee, uint16 lpFee, , ) = vault.systemParams();
-        (, , uint48 vaultId) = vault.vaultStates(
+        (, uint16 baseFee, uint16 lpFee, , ) = VAULT.systemParams();
+        (, , uint48 vaultId) = VAULT.vaultStates(
             vaultParams.debtToken,
             vaultParams.collateralToken,
             vaultParams.leverageTier
@@ -199,7 +202,7 @@ contract Assistant is ERC1155TokenReceiver {
         if (vaultId == 0) revert VaultDoesNotExist();
 
         // Get current reserves
-        VaultStructs.Reserves memory reserves = vault.getReserves(vaultParams);
+        VaultStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
 
         if (isAPE) {
             // Compute how much collateral actually gets deposited
@@ -218,7 +221,7 @@ contract Assistant is ERC1155TokenReceiver {
             uint256 collateralIn = (uint256(amountCollateral) * feeNum) / feeDen;
 
             // Get supply of APE
-            address ape = SaltedAddress.getAddress(address(vault), vaultId);
+            address ape = SaltedAddress.getAddress(address(VAULT), vaultId);
             uint256 supplyAPE = IERC20(ape).totalSupply();
 
             // Calculate tokens
@@ -227,7 +230,7 @@ contract Assistant is ERC1155TokenReceiver {
                 : FullMath.mulDiv(supplyAPE, collateralIn, reserves.reserveApes);
         } else {
             // Get current tax
-            uint8 tax = vault.vaultTax(vaultId);
+            uint8 tax = VAULT.vaultTax(vaultId);
 
             // Compute how much collateral actually gets deposited
             (uint144 collateralIn, , uint144 lpersFee, uint144 polFee) = Fees.hiddenFeeTEA(
@@ -238,7 +241,7 @@ contract Assistant is ERC1155TokenReceiver {
             reserves.reserveLPers += lpersFee;
 
             // Get supply of TEA
-            uint256 supplyTEA = vault.totalSupply(vaultId);
+            uint256 supplyTEA = VAULT.totalSupply(vaultId);
 
             // POL
             uint256 amountPOL = supplyTEA == 0
@@ -266,8 +269,8 @@ contract Assistant is ERC1155TokenReceiver {
         uint256 amountTokens
     ) external view returns (uint144 amountCollateral) {
         // Get all the parameters
-        (, uint16 baseFee, uint16 lpFee, , ) = vault.systemParams();
-        (, , uint48 vaultId) = vault.vaultStates(
+        (, uint16 baseFee, uint16 lpFee, , ) = VAULT.systemParams();
+        (, , uint48 vaultId) = VAULT.vaultStates(
             vaultParams.debtToken,
             vaultParams.collateralToken,
             vaultParams.leverageTier
@@ -275,11 +278,11 @@ contract Assistant is ERC1155TokenReceiver {
         if (vaultId == 0) revert VaultDoesNotExist();
 
         // Get current reserves
-        VaultStructs.Reserves memory reserves = vault.getReserves(vaultParams);
+        VaultStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
 
         if (isAPE) {
             // Get supply of APE
-            address ape = SaltedAddress.getAddress(address(vault), vaultId);
+            address ape = SaltedAddress.getAddress(address(VAULT), vaultId);
             uint256 supplyAPE = IERC20(ape).totalSupply();
 
             // Get collateralOut
@@ -301,7 +304,7 @@ contract Assistant is ERC1155TokenReceiver {
             amountCollateral = uint144((collateralOut * feeNum) / feeDen);
         } else {
             // Get supply of TEA
-            uint256 supplyTEA = vault.totalSupply(vaultId);
+            uint256 supplyTEA = VAULT.totalSupply(vaultId);
 
             // Get collateralOut
             uint256 collateralOut = uint144(FullMath.mulDiv(reserves.reserveLPers, amountTokens, supplyTEA));
@@ -322,5 +325,14 @@ contract Assistant is ERC1155TokenReceiver {
         amount = collateralTotalSupply > SystemConstants.TEA_MAX_SUPPLY
             ? FullMath.mulDiv(SystemConstants.TEA_MAX_SUPPLY, collateralIn, collateralTotalSupply)
             : collateralIn;
+    }
+
+    function getAddress(address deployer, uint256 vaultId) internal pure returns (address) {
+        return
+            address(
+                uint160(
+                    uint(keccak256(abi.encodePacked(bytes1(0xff), deployer, bytes32(vaultId), HASH_CREATION_CODE_APE)))
+                )
+            );
     }
 }

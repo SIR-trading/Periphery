@@ -8,7 +8,7 @@ import {Assistant} from "src/Assistant.sol";
 import {VaultStructs} from "core/libraries/VaultStructs.sol";
 import {Addresses} from "core/libraries/Addresses.sol";
 
-contract TestAssistant is Script {
+contract TestPeriphery is Script {
     Assistant constant ASSISTANT = Assistant(0x6431AF84d34F0522cAA58b221d94A150B5AdAC69);
 
     VaultStructs.VaultParameters public vaultParameters =
