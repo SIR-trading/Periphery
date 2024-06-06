@@ -9,7 +9,7 @@ import {VaultStructs} from "core/libraries/VaultStructs.sol";
 import {Addresses} from "core/libraries/Addresses.sol";
 
 contract TestPeriphery is Script {
-    Assistant constant ASSISTANT = Assistant(0x6431AF84d34F0522cAA58b221d94A150B5AdAC69);
+    Assistant constant ASSISTANT = Assistant(0xACB5b53F9F193b99bcd8EF8544ddF4c398DE24a3);
 
     VaultStructs.VaultParameters public vaultParameters =
         VaultStructs.VaultParameters({

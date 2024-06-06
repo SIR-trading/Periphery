@@ -27,6 +27,8 @@ contract AssistantTest is Test {
         uint256 apeTotalSupply;
     }
 
+    bytes32 private constant _HASH_CREATION_CODE_APE = keccak256(type(APE).creationCode);
+
     uint256 constant SLOT_TEA_SUPPLY = 4;
     uint256 constant SLOT_APE_SUPPLY = 2;
     uint256 constant SLOT_VAULT_STATE = 7;
@@ -65,7 +67,7 @@ contract AssistantTest is Test {
         SystemControl(systemControl).initialize(address(vault), sir);
 
         // Deploy Assistant
-        assistant = new Assistant(address(0), address(vault));
+        assistant = new Assistant(address(0), address(vault), _HASH_CREATION_CODE_APE);
 
         // Approve Assistant to spend WETH
         WETH.approve(address(assistant), type(uint256).max);

@@ -5,7 +5,6 @@ import {Vault} from "core/Vault.sol";
 import {VaultStructs} from "core/libraries/VaultStructs.sol";
 import {SystemConstants} from "core/libraries/SystemConstants.sol";
 import {Fees} from "core/libraries/Fees.sol";
-import {SaltedAddress} from "core/libraries/SaltedAddress.sol";
 import {FullMath} from "core/libraries/FullMath.sol";
 import {TransferHelper} from "core/libraries/TransferHelper.sol";
 import {ISwapRouter} from "v3-periphery/interfaces/ISwapRouter.sol";
@@ -176,7 +175,7 @@ contract Assistant is ERC1155TokenReceiver {
             vaultParams.collateralToken,
             vaultParams.leverageTier
         );
-        den = IERC20(SaltedAddress.getAddress(address(VAULT), vaultId)).totalSupply();
+        den = IERC20(getAddressAPE(address(VAULT), vaultId)).totalSupply();
     }
 
     /*////////////////////////////////////////////////////////////////
@@ -221,7 +220,7 @@ contract Assistant is ERC1155TokenReceiver {
             uint256 collateralIn = (uint256(amountCollateral) * feeNum) / feeDen;
 
             // Get supply of APE
-            address ape = SaltedAddress.getAddress(address(VAULT), vaultId);
+            address ape = getAddressAPE(address(VAULT), vaultId);
             uint256 supplyAPE = IERC20(ape).totalSupply();
 
             // Calculate tokens
@@ -282,7 +281,7 @@ contract Assistant is ERC1155TokenReceiver {
 
         if (isAPE) {
             // Get supply of APE
-            address ape = SaltedAddress.getAddress(address(VAULT), vaultId);
+            address ape = getAddressAPE(address(VAULT), vaultId);
             uint256 supplyAPE = IERC20(ape).totalSupply();
 
             // Get collateralOut
@@ -316,6 +315,15 @@ contract Assistant is ERC1155TokenReceiver {
         }
     }
 
+    function getAddressAPE(address deployer, uint256 vaultId) public view returns (address) {
+        return
+            address(
+                uint160(
+                    uint(keccak256(abi.encodePacked(bytes1(0xff), deployer, bytes32(vaultId), HASH_CREATION_CODE_APE)))
+                )
+            );
+    }
+
     /*////////////////////////////////////////////////////////////////
                             PRIVATE FUNCTIONS
     ////////////////////////////////////////////////////////////////*/
@@ -325,14 +333,5 @@ contract Assistant is ERC1155TokenReceiver {
         amount = collateralTotalSupply > SystemConstants.TEA_MAX_SUPPLY
             ? FullMath.mulDiv(SystemConstants.TEA_MAX_SUPPLY, collateralIn, collateralTotalSupply)
             : collateralIn;
-    }
-
-    function getAddress(address deployer, uint256 vaultId) internal pure returns (address) {
-        return
-            address(
-                uint160(
-                    uint(keccak256(abi.encodePacked(bytes1(0xff), deployer, bytes32(vaultId), HASH_CREATION_CODE_APE)))
-                )
-            );
     }
 }

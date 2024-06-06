@@ -7,7 +7,8 @@ import {Assistant} from "src/Assistant.sol";
 import {Addresses} from "core/libraries/Addresses.sol";
 
 contract DeployPeriphery is Script {
-    address public constant VAULT = 0x41219a0a9C0b86ED81933c788a6B63Dfef8f17eE;
+    address public constant VAULT = 0x2ca60d89144D4cdf85dA87af4FE12aBF9265F28C;
+    bytes32 public constant HASH_CREATION_CODE_APE = 0x47506ce687e7393e061a27c5920877ca8b32056ab3feb8b417367524455546de;
 
     function setUp() public {}
 
@@ -16,7 +17,7 @@ contract DeployPeriphery is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy oracle
-        address assistant = address(new Assistant(Addresses.ADDR_UNISWAPV3_SWAP_ROUTER, VAULT));
+        address assistant = address(new Assistant(Addresses.ADDR_UNISWAPV3_SWAP_ROUTER, VAULT, HASH_CREATION_CODE_APE));
         console.log("Assistant deployed at: ", assistant);
 
         vm.stopBroadcast();

@@ -12,7 +12,7 @@ import {SaltedAddress} from "core/libraries/SaltedAddress.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
 contract SendSomeTransactions is Script {
-    Assistant constant ASSISTANT = Assistant(0xf975A646FCa589Be9fc4E0C28ea426A75645fB1f);
+    Assistant constant ASSISTANT = Assistant(0xACB5b53F9F193b99bcd8EF8544ddF4c398DE24a3);
 
     function setUp() public {}
 
@@ -21,32 +21,32 @@ contract SendSomeTransactions is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Address of the Vault contract
-        Vault vault = ASSISTANT.vault();
+        Vault vault = ASSISTANT.VAULT();
         console.log("Vault address: ", address(vault));
 
-        // // Quote mint
-        // uint256 amountTokens = ASSISTANT.quoteMint(
-        //     true,
-        //     VaultStructs.VaultParameters({
-        //         debtToken: Addresses.ADDR_USDT,
-        //         collateralToken: Addresses.ADDR_WETH,
-        //         leverageTier: int8(-2)
-        //     }),
-        //     950000000000000000
-        // );
-        // console.log("Quote mint amount: ", amountTokens);
+        // Quote mint
+        uint256 amountTokens = ASSISTANT.quoteMint(
+            true,
+            VaultStructs.VaultParameters({
+                debtToken: Addresses.ADDR_USDT,
+                collateralToken: Addresses.ADDR_WETH,
+                leverageTier: int8(-2)
+            }),
+            950000000000000000
+        );
+        console.log("Quote mint amount: ", amountTokens);
 
-        // Address of APE
-        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, int8(-2));
-        console.log("Vault ID: ", vaultId);
-        address ape = SaltedAddress.getAddress(address(vault), vaultId);
-        console.log("APE address: ", ape);
+        // // Address of APE
+        // (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, int8(-2));
+        // console.log("Vault ID: ", vaultId);
+        // address ape = ASSISTANT.getAddressAPE(address(vault), vaultId);
+        // console.log("APE address: ", ape);
 
-        // Total supplies
-        uint256 totalSupplyOfAPE = IERC20(ape).totalSupply();
-        console.log("Total supply of APE: ", totalSupplyOfAPE);
-        uint256 totalSupplyOfTEA = vault.totalSupply(vaultId);
-        console.log("Total supply of TEA: ", totalSupplyOfTEA);
+        // // Total supplies
+        // uint256 totalSupplyOfAPE = IERC20(ape).totalSupply();
+        // console.log("Total supply of APE: ", totalSupplyOfAPE);
+        // uint256 totalSupplyOfTEA = vault.totalSupply(vaultId);
+        // console.log("Total supply of TEA: ", totalSupplyOfTEA);
 
         // // Attempt to mint APE
         // IERC20(Addresses.ADDR_WETH).approve(address(ASSISTANT), 950000000000000000);
