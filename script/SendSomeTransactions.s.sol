@@ -12,20 +12,22 @@ import {SaltedAddress} from "core/libraries/SaltedAddress.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
 contract SendSomeTransactions is Script {
-    Assistant constant ASSISTANT = Assistant(0xACB5b53F9F193b99bcd8EF8544ddF4c398DE24a3);
+    Assistant public assistant;
 
-    function setUp() public {}
+    function setUp() public {
+        assistant = Assistant(vm.envAddress("ASSISTANT"));
+    }
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("TARP_TESTNET_PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
         // Address of the Vault contract
-        Vault vault = ASSISTANT.VAULT();
+        Vault vault = assistant.VAULT();
         console.log("Vault address: ", address(vault));
 
         // Quote mint
-        uint256 amountTokens = ASSISTANT.quoteMint(
+        uint256 amountTokens = assistant.quoteMint(
             true,
             VaultStructs.VaultParameters({
                 debtToken: Addresses.ADDR_USDT,
@@ -39,7 +41,7 @@ contract SendSomeTransactions is Script {
         // // Address of APE
         // (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, int8(-2));
         // console.log("Vault ID: ", vaultId);
-        // address ape = ASSISTANT.getAddressAPE(address(vault), vaultId);
+        // address ape = assistant.getAddressAPE(address(vault), vaultId);
         // console.log("APE address: ", ape);
 
         // // Total supplies
@@ -49,8 +51,8 @@ contract SendSomeTransactions is Script {
         // console.log("Total supply of TEA: ", totalSupplyOfTEA);
 
         // // Attempt to mint APE
-        // IERC20(Addresses.ADDR_WETH).approve(address(ASSISTANT), 950000000000000000);
-        // uint256 amountTokens = ASSISTANT.mint(
+        // IERC20(Addresses.ADDR_WETH).approve(address(assistant), 950000000000000000);
+        // uint256 amountTokens = assistant.mint(
         //     ape,
         //     vaultId,
         //     VaultStructs.VaultParameters({

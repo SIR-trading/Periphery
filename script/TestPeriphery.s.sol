@@ -9,7 +9,7 @@ import {VaultStructs} from "core/libraries/VaultStructs.sol";
 import {Addresses} from "core/libraries/Addresses.sol";
 
 contract TestPeriphery is Script {
-    Assistant constant ASSISTANT = Assistant(0xACB5b53F9F193b99bcd8EF8544ddF4c398DE24a3);
+    Assistant public assistant;
 
     VaultStructs.VaultParameters public vaultParameters =
         VaultStructs.VaultParameters({
@@ -20,14 +20,16 @@ contract TestPeriphery is Script {
 
     uint256 public amountCollateral = 1 ether;
 
-    function setUp() public {}
+    function setUp() public {
+        assistant = Assistant(vm.envAddress("ASSISTANT"));
+    }
 
     function run() public {
         uint256 deployerPrivateKey = vm.envUint("TARP_TESTNET_PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
         console.log("Minting with", amountCollateral, "collateral");
-        uint256 amountTEA = ASSISTANT.quoteMint(false, vaultParameters, 1 ether);
+        uint256 amountTEA = assistant.quoteMint(false, vaultParameters, 1 ether);
         console.log("Expected amount of TEA received: ", amountTEA);
 
         vm.stopBroadcast();
