@@ -8,8 +8,8 @@ import {Fees} from "core/libraries/Fees.sol";
 import {FullMath} from "core/libraries/FullMath.sol";
 import {TransferHelper} from "core/libraries/TransferHelper.sol";
 import {ISwapRouter} from "v3-periphery/interfaces/ISwapRouter.sol";
-import {IERC20} from "v2-core/interfaces/IERC20.sol";
 import {ERC1155, ERC1155TokenReceiver} from "solmate/tokens/ERC1155.sol";
+import {IWETH9, IERC20} from "core/interfaces/IWETH9.sol";
 
 import "forge-std/console.sol";
 
@@ -23,6 +23,10 @@ contract Assistant is ERC1155TokenReceiver {
     // COULD CONSIDER JUST PASSING vaultId TO VAULT MINT/BURN FUNCTIONS
 
     error VaultDoesNotExist();
+    error CollateralIsNotWETH();
+    error NoETHSent();
+
+    IWETH9 private constant WETH = IWETH9(Addresses.ADDR_WETH);
 
     bytes32 public immutable HASH_CREATION_CODE_APE;
 
@@ -42,9 +46,38 @@ contract Assistant is ERC1155TokenReceiver {
         uint256 vaultId, // 0 if APE
         VaultStructs.VaultParameters calldata vaultParams,
         uint144 amountCollateral
-    ) external returns (uint256 amountTokens) {
+    ) public returns (uint256 amountTokens) {
         // Transfer collateral from user to VAULT
         TransferHelper.safeTransferFrom(vaultParams.collateralToken, msg.sender, address(VAULT), amountCollateral);
+
+        // Mint TEA or APE
+        bool isAPE = ape != address(0);
+        amountTokens = VAULT.mint(isAPE, vaultParams);
+
+        // Because this contract called mint. The tokens are now here and need to be transfered to the user
+        if (isAPE) {
+            IERC20(ape).transfer(msg.sender, amountTokens); // No need for TransferHelper because APE is our own token
+        } else {
+            ERC1155(address(VAULT)).safeTransferFrom(address(this), msg.sender, vaultId, amountTokens, "");
+        }
+    }
+
+    function mintWithETH(
+        address ape, // Address of the APE token, or address(0) if TEA
+        uint256 vaultId, // 0 if APE
+        VaultStructs.VaultParameters calldata vaultParams
+    ) external payable returns (uint256 amountTokens) {
+        if (vaultParams.collateralToken != Addresses.ADDR_WETH) revert CollateralIsNotWETH();
+
+        // We use balance in case there is some forgotten ETH in the contract
+        uint256 = balanceOfETH = address(this).balance;
+        if (balanceOfETH) revert NoETHSent();
+
+        // Wrap ETH into WETH
+        WETH.deposit{value: balanceOfETH}();
+
+        // Transfer WETH to the vault
+        WETH.transfer(address(VAULT), balanceOfETH);
 
         // Mint TEA or APE
         bool isAPE = ape != address(0);
