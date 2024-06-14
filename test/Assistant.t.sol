@@ -43,6 +43,13 @@ contract AssistantTest is Test {
     uint96 constant ETH_SUPPLY = 120e6 * 10 ** 18;
     uint256 constant USDT_SUPPLY = 100e9 * 10 ** 6;
 
+    VaultStructs.VaultParameters vaultParams =
+        VaultStructs.VaultParameters({
+            debtToken: Addresses.ADDR_USDT,
+            collateralToken: Addresses.ADDR_WETH,
+            leverageTier: 0
+        });
+
     function setUp() public {
         // vm.writeFile("./mint.log", "");
 
@@ -83,7 +90,7 @@ contract AssistantTest is Test {
         address user
     ) public {
         // Initialize vault
-        leverageTier = _initializeVault(leverageTier);
+        _initializeVault(leverageTier);
 
         // Bound WETH amounts
         wethMinted = uint144(_bound(wethMinted, 2, ETH_SUPPLY));
@@ -91,10 +98,10 @@ contract AssistantTest is Test {
 
         // Deal WETH
         vm.assume(user != address(0));
-        _dealWETH(user, wethDeposited);
+        _dealWETH(user, wethMinted);
 
         // Get vault ID if TEA
-        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, leverageTier);
+        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, vaultParams.leverageTier);
 
         // Approve assistant to spend WETH
         vm.prank(user);
@@ -105,15 +112,7 @@ contract AssistantTest is Test {
         uint256 amountTokens;
         try
             // Quote mint
-            assistant.quoteMint(
-                isAPE,
-                VaultStructs.VaultParameters({
-                    debtToken: Addresses.ADDR_USDT,
-                    collateralToken: Addresses.ADDR_WETH,
-                    leverageTier: leverageTier
-                }),
-                wethDeposited
-            )
+            assistant.quoteMint(isAPE, vaultParams, wethDeposited)
         returns (uint256 temp) {
             expectRevert = false;
             amountTokens = temp;
@@ -127,12 +126,69 @@ contract AssistantTest is Test {
         uint256 amountTokens_ = assistant.mint(
             isAPE ? SaltedAddress.getAddress(address(vault), vaultId) : address(0),
             vaultId,
-            VaultStructs.VaultParameters({
-                debtToken: Addresses.ADDR_USDT,
-                collateralToken: Addresses.ADDR_WETH,
-                leverageTier: leverageTier
-            }),
+            vaultParams,
             wethDeposited
+        );
+        if (!expectRevert) {
+            assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
+        }
+    }
+
+    /** @dev Important to run first quoteMint before mint changes the state of the Vault
+     */
+    function testFuzz_mintWithETHFirstTime(
+        bool isAPE,
+        int8 leverageTier,
+        uint144 ethAssistantBalance,
+        uint144 ethMinted,
+        uint144 ethDeposited,
+        address user
+    ) public {
+        // Initialize vault
+        _initializeVault(leverageTier);
+
+        // Bound ETH amounts
+        ethAssistantBalance = uint144(_bound(ethAssistantBalance, 0, ETH_SUPPLY));
+        ethMinted = uint144(_bound(ethMinted, 2, ETH_SUPPLY));
+        ethDeposited = uint144(_bound(ethDeposited, ethAssistantBalance < 2 ? 2 - ethAssistantBalance : 0, ethMinted)); // Minimum amount that must be deposited is
+
+        // Deal ETH
+        vm.assume(user != address(0));
+        vm.deal(address(assistant), ethAssistantBalance);
+        vm.deal(user, ethMinted);
+
+        // Get vault ID if TEA
+        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, vaultParams.leverageTier);
+
+        // For exactness quoteMint needs to retrieve the exact same totalSupply
+        vm.mockCall(
+            Addresses.ADDR_WETH,
+            abi.encodeWithSelector(WETH.totalSupply.selector),
+            abi.encode(WETH.totalSupply() + ethAssistantBalance + ethDeposited)
+        );
+
+        // Mint TEA or APE and test it against quoteMint
+        bool expectRevert;
+        uint256 amountTokens;
+        try
+            // Quote mint
+            assistant.quoteMint(isAPE, vaultParams, ethAssistantBalance + ethDeposited)
+        returns (uint256 temp) {
+            expectRevert = false;
+            amountTokens = temp;
+        } catch {
+            expectRevert = true;
+            vm.expectRevert();
+        }
+
+        vm.clearMockedCalls();
+
+        // Mint
+        vm.prank(user);
+        uint256 amountTokens_ = assistant.mintWithETH{value: ethDeposited}(
+            isAPE ? SaltedAddress.getAddress(address(vault), vaultId) : address(0),
+            vaultId,
+            vaultParams
         );
         if (!expectRevert) {
             assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
@@ -148,14 +204,14 @@ contract AssistantTest is Test {
         State memory state
     ) public {
         // Initialize vault
-        leverageTier = _initializeVault(leverageTier);
+        _initializeVault(leverageTier);
 
         // Get vault ID
-        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, leverageTier);
+        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, vaultParams.leverageTier);
 
         // Initialize vault state
         address ape = SaltedAddress.getAddress(address(vault), vaultId);
-        _initializeState(leverageTier, state, ape);
+        _initializeState(vaultParams.leverageTier, state, ape);
 
         // Bound WETH amounts
         wethMinted = uint144(_bound(wethMinted, 0, ETH_SUPPLY));
@@ -163,7 +219,7 @@ contract AssistantTest is Test {
 
         // Deal WETH
         vm.assume(user != address(0));
-        _dealWETH(user, wethDeposited);
+        _dealWETH(user, wethMinted);
 
         // Approve assistant to spend WETH
         vm.prank(user);
@@ -174,33 +230,14 @@ contract AssistantTest is Test {
         uint256 amountTokens;
         try
             // Quote mint
-            assistant.quoteMint(
-                isAPE,
-                VaultStructs.VaultParameters({
-                    debtToken: Addresses.ADDR_USDT,
-                    collateralToken: Addresses.ADDR_WETH,
-                    leverageTier: leverageTier
-                }),
-                wethDeposited
-            )
+            assistant.quoteMint(isAPE, vaultParams, wethDeposited)
         returns (uint256 temp) {
             amountTokens = temp;
             mayWork = true;
         } catch {
+            mayWork = false;
             // vm.writeLine("./mint.log", "quoteMint revert, mint revert");
             // quoteMint reverts => mint reverts
-            vm.expectRevert();
-            vm.prank(user);
-            assistant.mint(
-                isAPE ? ape : address(0),
-                vaultId,
-                VaultStructs.VaultParameters({
-                    debtToken: Addresses.ADDR_USDT,
-                    collateralToken: Addresses.ADDR_WETH,
-                    leverageTier: leverageTier
-                }),
-                wethDeposited
-            );
         }
 
         // Mint
@@ -210,11 +247,7 @@ contract AssistantTest is Test {
                 assistant.mint(
                     isAPE ? SaltedAddress.getAddress(address(vault), vaultId) : address(0),
                     vaultId,
-                    VaultStructs.VaultParameters({
-                        debtToken: Addresses.ADDR_USDT,
-                        collateralToken: Addresses.ADDR_WETH,
-                        leverageTier: leverageTier
-                    }),
+                    vaultParams,
                     wethDeposited
                 )
             returns (uint256 amountTokens_) {
@@ -223,6 +256,85 @@ contract AssistantTest is Test {
             } catch {
                 // vm.writeLine("./mint.log", "quoteMint successful, mint revert");
             }
+        } else {
+            vm.expectRevert();
+            vm.prank(user);
+            assistant.mint(isAPE ? ape : address(0), vaultId, vaultParams, wethDeposited);
+        }
+    }
+
+    function testFuzz_mintWithETH(
+        bool isAPE,
+        int8 leverageTier,
+        uint144 ethAssistantBalance,
+        uint144 ethMinted,
+        uint144 ethDeposited,
+        address user,
+        State memory state
+    ) public {
+        // Initialize vault
+        _initializeVault(leverageTier);
+
+        // Get vault ID
+        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, vaultParams.leverageTier);
+
+        // Initialize vault state
+        address ape = SaltedAddress.getAddress(address(vault), vaultId);
+        _initializeState(vaultParams.leverageTier, state, ape);
+
+        // Bound ETH amounts
+        ethAssistantBalance = uint144(_bound(ethAssistantBalance, 0, ETH_SUPPLY));
+        ethMinted = uint144(_bound(ethMinted, 0, ETH_SUPPLY));
+        ethDeposited = uint144(_bound(ethDeposited, 0, ethMinted));
+
+        // For exactness quoteMint needs to retrieve the exact same totalSupply
+        vm.mockCall(
+            Addresses.ADDR_WETH,
+            abi.encodeWithSelector(WETH.totalSupply.selector),
+            abi.encode(WETH.totalSupply() + ethAssistantBalance + ethDeposited)
+        );
+
+        // Deal ETH
+        vm.assume(user != address(0));
+        vm.deal(address(assistant), ethAssistantBalance);
+        vm.deal(user, ethMinted);
+
+        // Mint TEA or APE and test it against quoteMint
+        bool mayWork;
+        uint256 amountTokens;
+        try
+            // Quote mint
+            assistant.quoteMint(isAPE, vaultParams, ethAssistantBalance + ethDeposited)
+        returns (uint256 temp) {
+            amountTokens = temp;
+            mayWork = true;
+        } catch {
+            mayWork = false;
+            // vm.writeLine("./mint.log", "quoteMint revert, mint revert");
+            // quoteMint reverts => mint reverts
+        }
+
+        vm.clearMockedCalls();
+
+        // Mint
+        if (mayWork) {
+            vm.prank(user);
+            try
+                assistant.mintWithETH{value: ethDeposited}(
+                    isAPE ? SaltedAddress.getAddress(address(vault), vaultId) : address(0),
+                    vaultId,
+                    vaultParams
+                )
+            returns (uint256 amountTokens_) {
+                // vm.writeLine("./mint.log", "quoteMint successful, mint successful");
+                assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
+            } catch {
+                // vm.writeLine("./mint.log", "quoteMint successful, mint revert");
+            }
+        } else {
+            vm.expectRevert();
+            vm.prank(user);
+            assistant.mintWithETH{value: ethDeposited}(isAPE ? ape : address(0), vaultId, vaultParams);
         }
     }
 
@@ -234,14 +346,14 @@ contract AssistantTest is Test {
         State memory state
     ) public {
         // Initialize vault
-        leverageTier = _initializeVault(leverageTier);
+        _initializeVault(leverageTier);
 
         // Get vault ID
-        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, leverageTier);
+        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, vaultParams.leverageTier);
 
         // Initialize vault state
         address ape = SaltedAddress.getAddress(address(vault), vaultId);
-        _initializeState(leverageTier, state, ape);
+        _initializeState(vaultParams.leverageTier, state, ape);
 
         vm.assume(user != address(0));
 
@@ -250,15 +362,7 @@ contract AssistantTest is Test {
         uint144 amountCollateral;
         try
             // Quote mint
-            assistant.quoteBurn(
-                isAPE,
-                VaultStructs.VaultParameters({
-                    debtToken: Addresses.ADDR_USDT,
-                    collateralToken: Addresses.ADDR_WETH,
-                    leverageTier: leverageTier
-                }),
-                tokensBurnt
-            )
+            assistant.quoteBurn(isAPE, vaultParams, tokensBurnt)
         returns (uint144 temp) {
             amountCollateral = temp;
             mayWork = true;
@@ -267,31 +371,13 @@ contract AssistantTest is Test {
             // quoteMint reverts => mint reverts
             vm.expectRevert();
             vm.prank(user);
-            vault.burn(
-                isAPE,
-                VaultStructs.VaultParameters({
-                    debtToken: Addresses.ADDR_USDT,
-                    collateralToken: Addresses.ADDR_WETH,
-                    leverageTier: leverageTier
-                }),
-                tokensBurnt
-            );
+            vault.burn(isAPE, vaultParams, tokensBurnt);
         }
 
         // Mint
         if (mayWork) {
             vm.prank(user);
-            try
-                vault.burn(
-                    isAPE,
-                    VaultStructs.VaultParameters({
-                        debtToken: Addresses.ADDR_USDT,
-                        collateralToken: Addresses.ADDR_WETH,
-                        leverageTier: leverageTier
-                    }),
-                    tokensBurnt
-                )
-            returns (uint144 amountCollateral_) {
+            try vault.burn(isAPE, vaultParams, tokensBurnt) returns (uint144 amountCollateral_) {
                 // vm.writeLine("./mint.log", "quoteMint successful, mint successful");
                 assertEq(
                     amountCollateral_,
@@ -312,7 +398,7 @@ contract AssistantTest is Test {
     //     address user
     // ) public {
     //     // Initialize vault
-    //     leverageTier = _initializeVault(leverageTier);
+    //      _initializeVault(leverageTier);
 
     //     // Bound WETH amounts
     //     usdtMinted = uint144(_bound(usdtMinted, 2, USDT_SUPPLY));
@@ -323,7 +409,7 @@ contract AssistantTest is Test {
     //     _dealUSDT(user, wethDeposited);
 
     //     // Get vault ID if TEA
-    //     (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, leverageTier);
+    //     (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, vaultParams.leverageTier);
 
     //     // Approve assistant to spend USDT
     //     vm.prank(user);
@@ -336,11 +422,7 @@ contract AssistantTest is Test {
     //         // Quote mint
     //         assistant.quoteMint(
     //             isAPE,
-    //             VaultStructs.VaultParameters({
-    //                 debtToken: Addresses.ADDR_USDT,
-    //                 collateralToken: Addresses.ADDR_WETH,
-    //                 leverageTier: leverageTier
-    //             }),
+    //             vaultParams,
     //             wethDeposited
     //         )
     //     returns (uint256 temp) {
@@ -356,11 +438,7 @@ contract AssistantTest is Test {
     //     uint256 amountTokens_ = assistant.mint(
     //         isAPE ? SaltedAddress.getAddress(address(vault), vaultId) : address(0),
     //         vaultId,
-    //         VaultStructs.VaultParameters({
-    //             debtToken: Addresses.ADDR_USDT,
-    //             collateralToken: Addresses.ADDR_WETH,
-    //             leverageTier: leverageTier
-    //         }),
+    //         vaultParams,
     //         wethDeposited
     //     );
     //     if (!expectRevert) {
@@ -383,13 +461,13 @@ contract AssistantTest is Test {
         // Deposit WETH to vault
         _dealWETH(address(vault), state.total);
 
-        console.log("state.reserve", state.reserve);
-        console.log("state.tickPriceSatX42", vm.toString(state.tickPriceSatX42));
-        console.log("state.total", state.total);
-        console.log("state.collectedFees", state.collectedFees);
-        console.log("state.teaTotalSupply", state.teaTotalSupply);
-        console.log("state.teaBalanceVault", state.teaBalanceVault);
-        console.log("state.apeTotalSupply", state.apeTotalSupply);
+        // console.log("state.reserve", state.reserve);
+        // console.log("state.tickPriceSatX42", vm.toString(state.tickPriceSatX42));
+        // console.log("state.total", state.total);
+        // console.log("state.collectedFees", state.collectedFees);
+        // console.log("state.teaTotalSupply", state.teaTotalSupply);
+        // console.log("state.teaBalanceVault", state.teaBalanceVault);
+        // console.log("state.apeTotalSupply", state.apeTotalSupply);
 
         bytes32 slotInd = keccak256(
             abi.encode(
@@ -432,19 +510,13 @@ contract AssistantTest is Test {
         assertEq(IERC20(ape).totalSupply(), state.apeTotalSupply, "Wrong apeTotalSupply used by vm.store");
     }
 
-    function _initializeVault(int8 leverageTier) private returns (int8 boundedLeverageTier) {
-        boundedLeverageTier = int8(
+    function _initializeVault(int8 leverageTier) private {
+        vaultParams.leverageTier = int8(
             _bound(leverageTier, SystemConstants.MIN_LEVERAGE_TIER, SystemConstants.MAX_LEVERAGE_TIER)
         );
 
         // Initialize vault
-        vault.initialize(
-            VaultStructs.VaultParameters({
-                debtToken: Addresses.ADDR_USDT,
-                collateralToken: Addresses.ADDR_WETH,
-                leverageTier: boundedLeverageTier
-            })
-        );
+        vault.initialize(vaultParams);
     }
 
     function _dealWETH(address to, uint256 amount) private {

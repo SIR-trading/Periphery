@@ -6,6 +6,7 @@ fs_permissions = [{ access = "read-write", path = "./"}]
 
 [fuzz]
 runs = 100
+seed = "0x02"
 
 [rpc_endpoints]
 mainnet = "https://mainnet.infura.io/v3/${RPC_MAINNET}"

@@ -10,6 +10,7 @@ import {TransferHelper} from "core/libraries/TransferHelper.sol";
 import {ISwapRouter} from "v3-periphery/interfaces/ISwapRouter.sol";
 import {ERC1155, ERC1155TokenReceiver} from "solmate/tokens/ERC1155.sol";
 import {IWETH9, IERC20} from "core/interfaces/IWETH9.sol";
+import {Addresses} from "core/libraries/Addresses.sol";
 
 import "forge-std/console.sol";
 
@@ -70,8 +71,8 @@ contract Assistant is ERC1155TokenReceiver {
         if (vaultParams.collateralToken != Addresses.ADDR_WETH) revert CollateralIsNotWETH();
 
         // We use balance in case there is some forgotten ETH in the contract
-        uint256 = balanceOfETH = address(this).balance;
-        if (balanceOfETH) revert NoETHSent();
+        uint256 balanceOfETH = address(this).balance;
+        if (balanceOfETH == 0) revert NoETHSent();
 
         // Wrap ETH into WETH
         WETH.deposit{value: balanceOfETH}();
