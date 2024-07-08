@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Vault} from "core/Vault.sol";
-import {VaultStructs} from "core/libraries/VaultStructs.sol";
+import {IVault} from "core/interfaces/IVault.sol";
+import {SirStructs} from "core/libraries/SirStructs.sol";
 import {SystemConstants} from "core/libraries/SystemConstants.sol";
 import {Fees} from "core/libraries/Fees.sol";
 import {FullMath} from "core/libraries/FullMath.sol";
@@ -32,11 +32,11 @@ contract Assistant is ERC1155TokenReceiver {
     bytes32 public immutable HASH_CREATION_CODE_APE;
 
     ISwapRouter public immutable SWAP_ROUTER; // Uniswap V3 SwapRouter
-    Vault public immutable VAULT;
+    IVault public immutable VAULT;
 
     constructor(address swapRouter_, address vault_, bytes32 hashCreationCodeAPE) {
         SWAP_ROUTER = ISwapRouter(swapRouter_);
-        VAULT = Vault(vault_);
+        VAULT = IVault(vault_);
         HASH_CREATION_CODE_APE = hashCreationCodeAPE;
     }
 
@@ -45,7 +45,7 @@ contract Assistant is ERC1155TokenReceiver {
     function mint(
         address ape, // Address of the APE token, or address(0) if TEA
         uint256 vaultId, // 0 if APE
-        VaultStructs.VaultParameters calldata vaultParams,
+        SirStructs.VaultParameters calldata vaultParams,
         uint144 amountCollateral
     ) public returns (uint256 amountTokens) {
         // Transfer collateral from user to VAULT
@@ -66,7 +66,7 @@ contract Assistant is ERC1155TokenReceiver {
     function mintWithETH(
         address ape, // Address of the APE token, or address(0) if TEA
         uint256 vaultId, // 0 if APE
-        VaultStructs.VaultParameters calldata vaultParams
+        SirStructs.VaultParameters calldata vaultParams
     ) external payable returns (uint256 amountTokens) {
         if (vaultParams.collateralToken != Addresses.ADDR_WETH) revert CollateralIsNotWETH();
 
@@ -98,7 +98,7 @@ contract Assistant is ERC1155TokenReceiver {
     function swapAndMint(
         address ape, // Address of the APE token, or address(0) if TEA
         uint256 vaultId, // 0 if APE
-        VaultStructs.VaultParameters calldata vaultParams,
+        SirStructs.VaultParameters calldata vaultParams,
         uint256 amountDebtToken,
         uint256 minCollateral,
         uint24 uniswapFeeTier
@@ -138,7 +138,7 @@ contract Assistant is ERC1155TokenReceiver {
     function burnAndSwap(
         address ape, // Address of the APE token, or address(0) if TEA
         uint256 vaultId, // 0 if APE
-        VaultStructs.VaultParameters calldata vaultParams,
+        SirStructs.VaultParameters calldata vaultParams,
         uint256 amountTokens,
         uint256 minDebtToken,
         uint24 uniswapFeeTier
@@ -178,38 +178,30 @@ contract Assistant is ERC1155TokenReceiver {
         @notice To get the price as [units of Collateral][per unit of TEA], divide num by den.
      */
     function priceOfTEA(
-        VaultStructs.VaultParameters calldata vaultParams
+        SirStructs.VaultParameters calldata vaultParams
     ) external view returns (uint256 num, uint256 den) {
         // Get current reserves
-        VaultStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
+        SirStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
         num = reserves.reserveLPers;
 
         // Get supply of TEA
-        (, , uint48 vaultId) = VAULT.vaultStates(
-            vaultParams.debtToken,
-            vaultParams.collateralToken,
-            vaultParams.leverageTier
-        );
-        den = VAULT.totalSupply(vaultId);
+        SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
+        den = VAULT.totalSupply(vaultState.vaultId);
     }
 
     /** @notice It returns the ideal price of APE if there were no fees for withdrawing.
         @notice To get the price as [units of Collateral][per unit of APE], divide num by den.
      */
     function priceOfAPE(
-        VaultStructs.VaultParameters calldata vaultParams
+        SirStructs.VaultParameters calldata vaultParams
     ) external view returns (uint256 num, uint256 den) {
         // Get current reserves
-        VaultStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
+        SirStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
         num = reserves.reserveApes;
 
         // Get supply of APE
-        (, , uint48 vaultId) = VAULT.vaultStates(
-            vaultParams.debtToken,
-            vaultParams.collateralToken,
-            vaultParams.leverageTier
-        );
-        den = IERC20(getAddressAPE(address(VAULT), vaultId)).totalSupply();
+        SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
+        den = IERC20(getAddressAPE(address(VAULT), vaultState.vaultId)).totalSupply();
     }
 
     /*////////////////////////////////////////////////////////////////
@@ -222,20 +214,16 @@ contract Assistant is ERC1155TokenReceiver {
      */
     function quoteMint(
         bool isAPE,
-        VaultStructs.VaultParameters calldata vaultParams,
+        SirStructs.VaultParameters calldata vaultParams,
         uint144 amountCollateral
     ) external view returns (uint256 amountTokens) {
         // Get all the parameters
-        (, uint16 baseFee, uint16 lpFee, , ) = VAULT.systemParams();
-        (, , uint48 vaultId) = VAULT.vaultStates(
-            vaultParams.debtToken,
-            vaultParams.collateralToken,
-            vaultParams.leverageTier
-        );
-        if (vaultId == 0) revert VaultDoesNotExist();
+        SirStructs.SystemParameters memory systemParams = VAULT.systemParams();
+        SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
+        if (vaultState.vaultId == 0) revert VaultDoesNotExist();
 
         // Get current reserves
-        VaultStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
+        SirStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
 
         if (isAPE) {
             // Compute how much collateral actually gets deposited
@@ -243,18 +231,18 @@ contract Assistant is ERC1155TokenReceiver {
             uint256 feeDen;
             if (vaultParams.leverageTier >= 0) {
                 feeNum = 10000; // baseFee is uint16, leverageTier is int8, so feeNum does not require more than 24 bits
-                feeDen = 10000 + (uint256(baseFee) << uint8(vaultParams.leverageTier));
+                feeDen = 10000 + (uint256(systemParams.baseFee) << uint8(vaultParams.leverageTier));
             } else {
                 uint256 temp = 10000 << uint8(-vaultParams.leverageTier);
                 feeNum = temp;
-                feeDen = temp + uint256(baseFee);
+                feeDen = temp + uint256(systemParams.baseFee);
             }
 
             // Get collateralIn
             uint256 collateralIn = (uint256(amountCollateral) * feeNum) / feeDen;
 
             // Get supply of APE
-            address ape = getAddressAPE(address(VAULT), vaultId);
+            address ape = getAddressAPE(address(VAULT), vaultState.vaultId);
             uint256 supplyAPE = IERC20(ape).totalSupply();
 
             // Calculate tokens
@@ -263,32 +251,28 @@ contract Assistant is ERC1155TokenReceiver {
                 : FullMath.mulDiv(supplyAPE, collateralIn, reserves.reserveApes);
         } else {
             // Get current tax
-            uint8 tax = VAULT.vaultTax(vaultId);
+            uint8 tax = VAULT.vaultTax(vaultState.vaultId);
 
             // Compute how much collateral actually gets deposited
-            (uint144 collateralIn, , uint144 lpersFee, uint144 polFee) = Fees.hiddenFeeTEA(
-                amountCollateral,
-                lpFee,
-                tax
-            );
-            reserves.reserveLPers += lpersFee;
+            SirStructs.Fees memory fees = Fees.hiddenFeeTEA(amountCollateral, systemParams.lpFee, tax);
+            reserves.reserveLPers += fees.collateralFeeToGentlemen;
 
             // Get supply of TEA
-            uint256 supplyTEA = VAULT.totalSupply(vaultId);
+            uint256 supplyTEA = VAULT.totalSupply(vaultState.vaultId);
 
             // POL
             uint256 amountPOL = supplyTEA == 0
-                ? _amountFirstMint(vaultParams.collateralToken, polFee + reserves.reserveLPers)
-                : FullMath.mulDiv(supplyTEA, polFee, reserves.reserveLPers);
+                ? _amountFirstMint(vaultParams.collateralToken, fees.collateralFeeToProtocol + reserves.reserveLPers)
+                : FullMath.mulDiv(supplyTEA, fees.collateralFeeToProtocol, reserves.reserveLPers);
             supplyTEA += amountPOL;
 
             // LPer fees
-            reserves.reserveLPers += polFee;
+            reserves.reserveLPers += fees.collateralFeeToProtocol;
 
             // Calculate tokens
             amountTokens = supplyTEA == 0
-                ? _amountFirstMint(vaultParams.collateralToken, collateralIn + reserves.reserveLPers)
-                : FullMath.mulDiv(supplyTEA, collateralIn, reserves.reserveLPers);
+                ? _amountFirstMint(vaultParams.collateralToken, fees.collateralInOrWithdrawn + reserves.reserveLPers)
+                : FullMath.mulDiv(supplyTEA, fees.collateralInOrWithdrawn, reserves.reserveLPers);
         }
     }
 
@@ -298,24 +282,20 @@ contract Assistant is ERC1155TokenReceiver {
      */
     function quoteBurn(
         bool isAPE,
-        VaultStructs.VaultParameters calldata vaultParams,
+        SirStructs.VaultParameters calldata vaultParams,
         uint256 amountTokens
     ) external view returns (uint144 amountCollateral) {
         // Get all the parameters
-        (, uint16 baseFee, uint16 lpFee, , ) = VAULT.systemParams();
-        (, , uint48 vaultId) = VAULT.vaultStates(
-            vaultParams.debtToken,
-            vaultParams.collateralToken,
-            vaultParams.leverageTier
-        );
-        if (vaultId == 0) revert VaultDoesNotExist();
+        SirStructs.SystemParameters memory systemParams = VAULT.systemParams();
+        SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
+        if (vaultState.vaultId == 0) revert VaultDoesNotExist();
 
         // Get current reserves
-        VaultStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
+        SirStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
 
         if (isAPE) {
             // Get supply of APE
-            address ape = getAddressAPE(address(VAULT), vaultId);
+            address ape = getAddressAPE(address(VAULT), vaultState.vaultId);
             uint256 supplyAPE = IERC20(ape).totalSupply();
 
             // Get collateralOut
@@ -326,25 +306,25 @@ contract Assistant is ERC1155TokenReceiver {
             uint256 feeDen;
             if (vaultParams.leverageTier >= 0) {
                 feeNum = 10000;
-                feeDen = 10000 + (uint256(baseFee) << uint8(vaultParams.leverageTier));
+                feeDen = 10000 + (uint256(systemParams.baseFee) << uint8(vaultParams.leverageTier));
             } else {
                 uint256 temp = 10000 << uint8(-vaultParams.leverageTier);
                 feeNum = temp;
-                feeDen = temp + uint256(baseFee);
+                feeDen = temp + uint256(systemParams.baseFee);
             }
 
             // Get collateral withdrawn
             amountCollateral = uint144((collateralOut * feeNum) / feeDen);
         } else {
             // Get supply of TEA
-            uint256 supplyTEA = VAULT.totalSupply(vaultId);
+            uint256 supplyTEA = VAULT.totalSupply(vaultState.vaultId);
 
             // Get collateralOut
             uint256 collateralOut = uint144(FullMath.mulDiv(reserves.reserveLPers, amountTokens, supplyTEA));
 
             // Compute collateral withdrawn
             uint256 feeNum = 10000;
-            uint256 feeDen = 10000 + uint256(lpFee);
+            uint256 feeDen = 10000 + uint256(systemParams.lpFee);
             amountCollateral = uint144((collateralOut * feeNum) / feeDen);
         }
     }

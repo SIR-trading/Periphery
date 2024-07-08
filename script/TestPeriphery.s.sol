@@ -5,14 +5,14 @@ import "forge-std/Script.sol";
 // import "forge-std/console.sol";
 
 import {Assistant} from "src/Assistant.sol";
-import {VaultStructs} from "core/libraries/VaultStructs.sol";
+import {SirStructs} from "core/libraries/SirStructs.sol";
 import {Addresses} from "core/libraries/Addresses.sol";
 
 contract TestPeriphery is Script {
     Assistant public assistant;
 
-    VaultStructs.VaultParameters public vaultParameters =
-        VaultStructs.VaultParameters({
+    SirStructs.VaultParameters public vaultParameters =
+        SirStructs.VaultParameters({
             debtToken: Addresses.ADDR_USDT,
             collateralToken: Addresses.ADDR_WETH,
             leverageTier: int8(-1)

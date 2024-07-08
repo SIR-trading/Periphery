@@ -10,7 +10,7 @@ import {SIR} from "core/SIR.sol";
 import {APE} from "core/APE.sol";
 import {Vault} from "core/Vault.sol";
 import {SystemConstants} from "core/libraries/SystemConstants.sol";
-import {VaultStructs} from "core/libraries/VaultStructs.sol";
+import {SirStructs} from "core/libraries/SirStructs.sol";
 import {IWETH9} from "core/interfaces/IWETH9.sol";
 import {Assistant} from "src/Assistant.sol";
 import {SaltedAddress} from "core/libraries/SaltedAddress.sol";
@@ -43,8 +43,8 @@ contract AssistantTest is Test {
     uint96 constant ETH_SUPPLY = 120e6 * 10 ** 18;
     uint256 constant USDT_SUPPLY = 100e9 * 10 ** 6;
 
-    VaultStructs.VaultParameters vaultParams =
-        VaultStructs.VaultParameters({
+    SirStructs.VaultParameters vaultParams =
+        SirStructs.VaultParameters({
             debtToken: Addresses.ADDR_USDT,
             collateralToken: Addresses.ADDR_WETH,
             leverageTier: 0
@@ -71,7 +71,7 @@ contract AssistantTest is Test {
         SIR(sir).initialize(address(vault));
 
         // Initialize SystemControl
-        SystemControl(systemControl).initialize(address(vault), sir);
+        SystemControl(systemControl).initialize(address(vault));
 
         // Deploy Assistant
         assistant = new Assistant(address(0), address(vault), _HASH_CREATION_CODE_APE);
@@ -101,7 +101,7 @@ contract AssistantTest is Test {
         _dealWETH(user, wethMinted);
 
         // Get vault ID if TEA
-        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, vaultParams.leverageTier);
+        SirStructs.VaultState memory vaultState = vault.vaultStates(vaultParams);
 
         // Approve assistant to spend WETH
         vm.prank(user);
@@ -124,8 +124,8 @@ contract AssistantTest is Test {
         // Mint
         vm.prank(user);
         uint256 amountTokens_ = assistant.mint(
-            isAPE ? SaltedAddress.getAddress(address(vault), vaultId) : address(0),
-            vaultId,
+            isAPE ? SaltedAddress.getAddress(address(vault), vaultState.vaultId) : address(0),
+            vaultState.vaultId,
             vaultParams,
             wethDeposited
         );
@@ -158,7 +158,7 @@ contract AssistantTest is Test {
         vm.deal(user, ethMinted);
 
         // Get vault ID if TEA
-        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, vaultParams.leverageTier);
+        SirStructs.VaultState memory vaultState = vault.vaultStates(vaultParams);
 
         // For exactness quoteMint needs to retrieve the exact same totalSupply
         vm.mockCall(
@@ -186,8 +186,8 @@ contract AssistantTest is Test {
         // Mint
         vm.prank(user);
         uint256 amountTokens_ = assistant.mintWithETH{value: ethDeposited}(
-            isAPE ? SaltedAddress.getAddress(address(vault), vaultId) : address(0),
-            vaultId,
+            isAPE ? SaltedAddress.getAddress(address(vault), vaultState.vaultId) : address(0),
+            vaultState.vaultId,
             vaultParams
         );
         if (!expectRevert) {
@@ -207,10 +207,10 @@ contract AssistantTest is Test {
         _initializeVault(leverageTier);
 
         // Get vault ID
-        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, vaultParams.leverageTier);
+        SirStructs.VaultState memory vaultState = vault.vaultStates(vaultParams);
 
         // Initialize vault state
-        address ape = SaltedAddress.getAddress(address(vault), vaultId);
+        address ape = SaltedAddress.getAddress(address(vault), vaultState.vaultId);
         _initializeState(vaultParams.leverageTier, state, ape);
 
         // Bound WETH amounts
@@ -245,8 +245,8 @@ contract AssistantTest is Test {
             vm.prank(user);
             try
                 assistant.mint(
-                    isAPE ? SaltedAddress.getAddress(address(vault), vaultId) : address(0),
-                    vaultId,
+                    isAPE ? SaltedAddress.getAddress(address(vault), vaultState.vaultId) : address(0),
+                    vaultState.vaultId,
                     vaultParams,
                     wethDeposited
                 )
@@ -259,7 +259,7 @@ contract AssistantTest is Test {
         } else {
             vm.expectRevert();
             vm.prank(user);
-            assistant.mint(isAPE ? ape : address(0), vaultId, vaultParams, wethDeposited);
+            assistant.mint(isAPE ? ape : address(0), vaultState.vaultId, vaultParams, wethDeposited);
         }
     }
 
@@ -276,10 +276,10 @@ contract AssistantTest is Test {
         _initializeVault(leverageTier);
 
         // Get vault ID
-        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, vaultParams.leverageTier);
+        SirStructs.VaultState memory vaultState = vault.vaultStates(vaultParams);
 
         // Initialize vault state
-        address ape = SaltedAddress.getAddress(address(vault), vaultId);
+        address ape = SaltedAddress.getAddress(address(vault), vaultState.vaultId);
         _initializeState(vaultParams.leverageTier, state, ape);
 
         // Bound ETH amounts
@@ -321,8 +321,8 @@ contract AssistantTest is Test {
             vm.prank(user);
             try
                 assistant.mintWithETH{value: ethDeposited}(
-                    isAPE ? SaltedAddress.getAddress(address(vault), vaultId) : address(0),
-                    vaultId,
+                    isAPE ? SaltedAddress.getAddress(address(vault), vaultState.vaultId) : address(0),
+                    vaultState.vaultId,
                     vaultParams
                 )
             returns (uint256 amountTokens_) {
@@ -334,7 +334,7 @@ contract AssistantTest is Test {
         } else {
             vm.expectRevert();
             vm.prank(user);
-            assistant.mintWithETH{value: ethDeposited}(isAPE ? ape : address(0), vaultId, vaultParams);
+            assistant.mintWithETH{value: ethDeposited}(isAPE ? ape : address(0), vaultState.vaultId, vaultParams);
         }
     }
 
@@ -349,10 +349,10 @@ contract AssistantTest is Test {
         _initializeVault(leverageTier);
 
         // Get vault ID
-        (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, vaultParams.leverageTier);
+        SirStructs.VaultState memory vaultState = vault.vaultStates(vaultParams);
 
         // Initialize vault state
-        address ape = SaltedAddress.getAddress(address(vault), vaultId);
+        address ape = SaltedAddress.getAddress(address(vault), vaultState.vaultId);
         _initializeState(vaultParams.leverageTier, state, ape);
 
         vm.assume(user != address(0));
@@ -409,7 +409,7 @@ contract AssistantTest is Test {
     //     _dealUSDT(user, wethDeposited);
 
     //     // Get vault ID if TEA
-    //     (, , uint48 vaultId) = vault.vaultStates(Addresses.ADDR_USDT, Addresses.ADDR_WETH, vaultParams.leverageTier);
+    //     SirStructs.VaultState memory vaultState = vault.vaultStates(vaultParams);
 
     //     // Approve assistant to spend USDT
     //     vm.prank(user);
@@ -436,8 +436,8 @@ contract AssistantTest is Test {
     //     // Mint
     //     vm.prank(user);
     //     uint256 amountTokens_ = assistant.mint(
-    //         isAPE ? SaltedAddress.getAddress(address(vault), vaultId) : address(0),
-    //         vaultId,
+    //         isAPE ? SaltedAddress.getAddress(address(vault), vaultState.vaultId) : address(0),
+    //         vaultState.vaultId,
     //         vaultParams,
     //         wethDeposited
     //     );
@@ -486,23 +486,21 @@ contract AssistantTest is Test {
 
         vm.store(address(vault), slotInd, bytes32(abi.encodePacked(vaultId_, state.tickPriceSatX42, state.reserve)));
 
-        (uint144 reserve, int64 tickPriceSatX42, uint48 vaultId) = vault.vaultStates(
-            Addresses.ADDR_USDT,
-            Addresses.ADDR_WETH,
-            leverageTier
+        SirStructs.VaultState memory vaultState = vault.vaultStates(
+            SirStructs.VaultParameters(Addresses.ADDR_USDT, Addresses.ADDR_WETH, leverageTier)
         );
-        assertEq(reserve, state.reserve, "Wrong reserve used by vm.store");
-        assertEq(tickPriceSatX42, state.tickPriceSatX42, "Wrong tickPriceSatX42 used by vm.store");
-        assertEq(vaultId, vaultId_, "Wrong vaultId used by vm.store");
+        assertEq(vaultState.reserve, state.reserve, "Wrong reserve used by vm.store");
+        assertEq(vaultState.tickPriceSatX42, state.tickPriceSatX42, "Wrong tickPriceSatX42 used by vm.store");
+        assertEq(vaultState.vaultId, vaultId_, "Wrong vaultId used by vm.store");
 
         //////////////////////////////////////////////////////////////////////////
 
         slotInd = keccak256(abi.encode(Addresses.ADDR_WETH, bytes32(uint256(SLOT_TOKEN_STATE))));
         vm.store(address(vault), slotInd, bytes32(abi.encodePacked(state.total, state.collectedFees)));
 
-        (uint112 collectedFees, uint144 total) = vault.tokenStates(Addresses.ADDR_WETH);
-        assertEq(collectedFees, state.collectedFees, "Wrong collectedFees used by vm.store");
-        assertEq(total, state.total, "Wrong total used by vm.store");
+        SirStructs.CollateralState memory collateralState = vault.collateralStates(Addresses.ADDR_WETH);
+        assertEq(collateralState.totalFeesToStakers, state.collectedFees, "Wrong collectedFees used by vm.store");
+        assertEq(collateralState.total, state.total, "Wrong total used by vm.store");
 
         //////////////////////////////////////////////////////////////////////////
 

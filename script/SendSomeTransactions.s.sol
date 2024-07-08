@@ -5,9 +5,9 @@ import "forge-std/Script.sol";
 // import "forge-std/console.sol";
 
 import {Assistant} from "src/Assistant.sol";
-import {VaultStructs} from "core/libraries/VaultStructs.sol";
+import {SirStructs} from "core/libraries/SirStructs.sol";
 import {Addresses} from "core/libraries/Addresses.sol";
-import {Vault} from "core/Vault.sol";
+import {IVault} from "core/interfaces/IVault.sol";
 import {SaltedAddress} from "core/libraries/SaltedAddress.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
@@ -23,13 +23,13 @@ contract SendSomeTransactions is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Address of the Vault contract
-        Vault vault = assistant.VAULT();
+        IVault vault = assistant.VAULT();
         console.log("Vault address: ", address(vault));
 
         // Quote mint
         uint256 amountTokens = assistant.quoteMint(
             true,
-            VaultStructs.VaultParameters({
+            SirStructs.VaultParameters({
                 debtToken: Addresses.ADDR_USDT,
                 collateralToken: Addresses.ADDR_WETH,
                 leverageTier: int8(-2)
@@ -55,7 +55,7 @@ contract SendSomeTransactions is Script {
         // uint256 amountTokens = assistant.mint(
         //     ape,
         //     vaultId,
-        //     VaultStructs.VaultParameters({
+        //     SirStructs.VaultParameters({
         //         debtToken: Addresses.ADDR_USDT,
         //         collateralToken: Addresses.ADDR_WETH,
         //         leverageTier: int8(-2)
