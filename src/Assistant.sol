@@ -6,7 +6,7 @@ import {SirStructs} from "core/libraries/SirStructs.sol";
 import {SystemConstants} from "core/libraries/SystemConstants.sol";
 import {Fees} from "core/libraries/Fees.sol";
 import {FullMath} from "core/libraries/FullMath.sol";
-import {TransferHelper} from "core/libraries/TransferHelper.sol";
+import {TransferHelper} from "v3-periphery/libraries/TransferHelper.sol";
 import {ISwapRouter} from "v3-periphery/interfaces/ISwapRouter.sol";
 import {ERC1155, ERC1155TokenReceiver} from "solmate/tokens/ERC1155.sol";
 import {IWETH9, IERC20} from "core/interfaces/IWETH9.sol";
@@ -20,9 +20,6 @@ import "forge-std/console.sol";
     @dev No burn function because the burn function in Vault can be called directly
  */
 contract Assistant is ERC1155TokenReceiver {
-    // ASSISTANT WOULD BENEFIT OF A SPECIAL FUNCTION FOR VANILLA ETH SO THAT THE USER DOES NOT NEED TO (UN)WRAP ETH INTO WETH
-    // COULD CONSIDER JUST PASSING vaultId TO VAULT MINT/BURN FUNCTIONS
-
     error VaultDoesNotExist();
     error CollateralIsNotWETH();
     error NoETHSent();
