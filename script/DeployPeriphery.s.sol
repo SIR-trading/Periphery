@@ -26,7 +26,7 @@ contract DeployPeriphery is Script {
     }
 
     /** cli for local testnet:  forge script script/DeployPeriphery.s.sol --rpc-url tarp_testnet --broadcast --legacy
-        cli for Sepolia:        forge script script/DeployPeriphery.s.sol --rpc-url sepolia --chain sepolia --broadcast
+        cli for Sepolia:        forge script script/DeployPeriphery.s.sol --rpc-url sepolia --chain sepolia --broadcast --slow
      */
     function run() public {
         vm.startBroadcast(deployerPrivateKey);
