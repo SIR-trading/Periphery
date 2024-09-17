@@ -31,7 +31,7 @@ contract DeployPeriphery is Script {
     function run() public {
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy oracle
+        // Deploy assistant
         address assistant = address(new Assistant(Addresses.ADDR_UNISWAPV3_SWAP_ROUTER, vault, hashCreationCodeAPE));
         console.log("Assistant deployed at: ", assistant);
 
