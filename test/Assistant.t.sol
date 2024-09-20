@@ -75,9 +75,12 @@ contract AssistantTest is Test {
 
         // Deploy Assistant
         assistant = new Assistant(address(0), address(vault), _HASH_CREATION_CODE_APE);
+        console.log("there");
 
         // Approve Assistant to spend WETH
         WETH.approve(address(assistant), type(uint256).max);
+
+        console.log("here");
     }
 
     /** @dev Important to run first quoteMint before mint changes the state of the Vault
