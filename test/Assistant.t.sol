@@ -56,13 +56,13 @@ contract AssistantTest is Test {
         vm.createSelectFork("mainnet", 18128102);
 
         // Deploy oracle
-        address oracle = address(new Oracle(Addresses.ADDR_UNISWAPV3_FACTORY));
+        address oracle = address(new Oracle());
 
         // Deploy SystemControl
         address systemControl = address(new SystemControl());
 
         // Deploy SIR token contract
-        address payable sir = payable(address(new SIR(Addresses.ADDR_WETH)));
+        address payable sir = payable(address(new SIR()));
 
         // Deploy APE implementation
         address ape = address(new APE());
