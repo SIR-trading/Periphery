@@ -257,6 +257,60 @@ contract AssistantTest is Test {
         }
     }
 
+    function testFuzz_mintWithETH(
+        bool isAPE,
+        int8 leverageTier,
+        uint144 ethMinted,
+        uint144 ethDeposited,
+        uint144 ethFakeDeposited,
+        address user,
+        State memory state
+    ) public {
+        // Initialize vault
+        _initializeVault(leverageTier);
+
+        // Initialize vault state
+        _initializeState(vaultParams.leverageTier, state);
+
+        // Bound WETH amounts
+        ethMinted = uint144(_bound(ethMinted, 0, ETH_SUPPLY));
+        ethDeposited = uint144(_bound(ethDeposited, 0, ethMinted)); // Minimum amount that must be deposited is
+
+        // Mint TEA or APE and test it against quoteMint
+        bool mintMustRevert;
+        uint256 amountTokens;
+        try
+            // Quote mint
+            assistant.quoteMint(isAPE, vaultParams, ethDeposited)
+        returns (uint256 amountTokens_) {
+            amountTokens = amountTokens_;
+            mintMustRevert = false;
+        } catch {
+            mintMustRevert = true;
+        }
+
+        // Deal WETH
+        vm.assume(user != address(0));
+        deal(user, ethMinted);
+
+        vm.prank(user);
+        if (mintMustRevert) {
+            // Mint must revert
+            vm.expectRevert();
+            vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited);
+        } else {
+            try
+                // Mint could revert
+                vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited)
+            returns (uint256 amountTokens_) {
+                // Mint does not revert like quoteMint
+                assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
+            } catch {
+                // Mint reverts contrary to quoteMint
+            }
+        }
+    }
+
     function testFuzz_burn(
         bool isAPE,
         int8 leverageTier,
@@ -305,6 +359,42 @@ contract AssistantTest is Test {
                 // Burn reverts contrary to quoteBurn
             }
         }
+    }
+
+    enum VaultStatus {
+        InvalidVault,
+        NoUniswapPool,
+        VaultCanBeCreated,
+        VaultAlreadyExists
+    }
+
+    function testFuzz_getVaultAlreadyExistsStatus(int8 leverageTier) public {
+        // Initialize vault
+        _initializeVault(leverageTier);
+
+        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
+        assertEq(vaultStatus, uint256(VaultStatus.VaultAlreadyExists));
+    }
+
+    function test_getVaultDoesNotExistsStatus() public view {
+        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
+        assertEq(vaultStatus, uint256(VaultStatus.VaultCanBeCreated));
+    }
+
+    function test_getVaultWithNoUniswapPool() public {
+        vaultParams.collateralToken = Addresses.ADDR_BNB;
+        vaultParams.debtToken = Addresses.ADDR_FRAX;
+
+        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
+        assertEq(vaultStatus, uint256(VaultStatus.NoUniswapPool));
+    }
+
+    function test_getVaultWithWrongAddress() public {
+        vaultParams.collateralToken = Addresses.ADDR_WETH;
+        vaultParams.debtToken = Addresses.ADDR_UNISWAPV3_FACTORY;
+
+        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
+        assertEq(vaultStatus, uint256(VaultStatus.InvalidVault));
     }
 
     ////////////////////////////////////////////////////////////////////////

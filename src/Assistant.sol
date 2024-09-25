@@ -12,7 +12,7 @@ import {UniswapPoolAddress} from "core/libraries/UniswapPoolAddress.sol";
 import {Addresses} from "core/libraries/Addresses.sol";
 import {AddressClone} from "core/libraries/AddressClone.sol";
 
-// import "forge-std/console.sol";
+import "forge-std/console.sol";
 
 /** @notice Helper functions for SIR protocol
  */
