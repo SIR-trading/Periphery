@@ -36,15 +36,8 @@ contract QueryPeriphery is Script {
         // Size of the contract
         console.log("Size of the contract: ", address(assistant).code.length);
 
-        // Address of the Uniswap V3 Swap Router
-        console.log("Uniswap V3 Swap Router: ", address(assistant.SWAP_ROUTER()));
-
         // Address of the Vault
         console.log("Vault: ", address(assistant.VAULT()));
-
-        // Hash of the APE creation code
-        bytes32 hashCreationCodeAPE = assistant.HASH_CREATION_CODE_APE();
-        console.log("Hash of the APE creation code: ", vm.toString(hashCreationCodeAPE));
 
         vm.stopBroadcast();
     }

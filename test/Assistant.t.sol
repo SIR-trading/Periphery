@@ -13,7 +13,7 @@ import {SystemConstants} from "core/libraries/SystemConstants.sol";
 import {SirStructs} from "core/libraries/SirStructs.sol";
 import {IWETH9} from "core/interfaces/IWETH9.sol";
 import {Assistant} from "src/Assistant.sol";
-import {SaltedAddress} from "core/libraries/SaltedAddress.sol";
+import {AddressClone} from "core/libraries/AddressClone.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
 contract AssistantTest is Test {
@@ -30,7 +30,7 @@ contract AssistantTest is Test {
     bytes32 private constant _HASH_CREATION_CODE_APE = keccak256(type(APE).creationCode);
 
     uint256 constant SLOT_TEA_SUPPLY = 4;
-    uint256 constant SLOT_APE_SUPPLY = 2;
+    uint256 constant SLOT_APE_SUPPLY = 5;
     uint256 constant SLOT_VAULT_STATE = 7;
     uint256 constant SLOT_TOKEN_STATE = 8;
 
@@ -64,8 +64,11 @@ contract AssistantTest is Test {
         // Deploy SIR token contract
         address payable sir = payable(address(new SIR(Addresses.ADDR_WETH)));
 
+        // Deploy APE implementation
+        address ape = address(new APE());
+
         // Deploy Vault
-        vault = new Vault(systemControl, sir, oracle);
+        vault = new Vault(systemControl, sir, oracle, ape);
 
         // Initialize SIR
         SIR(sir).initialize(address(vault));
@@ -74,13 +77,10 @@ contract AssistantTest is Test {
         SystemControl(systemControl).initialize(address(vault));
 
         // Deploy Assistant
-        assistant = new Assistant(address(0), address(vault), _HASH_CREATION_CODE_APE);
-        console.log("there");
+        assistant = new Assistant(address(vault));
 
         // Approve Assistant to spend WETH
-        WETH.approve(address(assistant), type(uint256).max);
-
-        console.log("here");
+        WETH.approve(address(vault), type(uint256).max);
     }
 
     /** @dev Important to run first quoteMint before mint changes the state of the Vault
@@ -96,44 +96,45 @@ contract AssistantTest is Test {
         _initializeVault(leverageTier);
 
         // Bound WETH amounts
-        wethMinted = uint144(_bound(wethMinted, 2, ETH_SUPPLY));
-        wethDeposited = uint144(_bound(wethDeposited, 2, wethMinted)); // Minimum amount that must be deposited is
+        wethMinted = uint144(_bound(wethMinted, 0, ETH_SUPPLY));
+        wethDeposited = uint144(_bound(wethDeposited, 0, wethMinted)); // Minimum amount that must be deposited is
 
         // Deal WETH
         vm.assume(user != address(0));
         _dealWETH(user, wethMinted);
 
-        // Get vault ID if TEA
-        SirStructs.VaultState memory vaultState = vault.vaultStates(vaultParams);
-
-        // Approve assistant to spend WETH
-        vm.prank(user);
-        WETH.approve(address(assistant), wethDeposited);
-
         // Mint TEA or APE and test it against quoteMint
-        bool expectRevert;
+        bool mintMustRevert;
         uint256 amountTokens;
         try
             // Quote mint
             assistant.quoteMint(isAPE, vaultParams, wethDeposited)
-        returns (uint256 temp) {
-            expectRevert = false;
-            amountTokens = temp;
+        returns (uint256 amountTokens_) {
+            mintMustRevert = false;
+            amountTokens = amountTokens_;
         } catch {
-            expectRevert = true;
-            vm.expectRevert();
+            mintMustRevert = true;
         }
 
-        // Mint
+        // Approve vault to spend WETH
         vm.prank(user);
-        uint256 amountTokens_ = assistant.mint(
-            isAPE ? SaltedAddress.getAddress(address(vault), vaultState.vaultId) : address(0),
-            vaultState.vaultId,
-            vaultParams,
-            wethDeposited
-        );
-        if (!expectRevert) {
-            assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
+        WETH.approve(address(vault), wethDeposited);
+
+        vm.prank(user);
+        if (mintMustRevert) {
+            // Mint must revert
+            vm.expectRevert();
+            vault.mint(isAPE, vaultParams, wethDeposited);
+        } else {
+            try
+                // Mint could revert
+                vault.mint(isAPE, vaultParams, wethDeposited)
+            returns (uint256 amountTokens_) {
+                // Mint does not revert like quoteMint
+                assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
+            } catch {
+                // Mint reverts contrary to quoteMint
+            }
         }
     }
 
@@ -142,59 +143,60 @@ contract AssistantTest is Test {
     function testFuzz_mintWithETHFirstTime(
         bool isAPE,
         int8 leverageTier,
-        uint144 ethAssistantBalance,
         uint144 ethMinted,
         uint144 ethDeposited,
+        uint144 ethFakeDeposited,
         address user
     ) public {
         // Initialize vault
         _initializeVault(leverageTier);
 
         // Bound ETH amounts
-        ethAssistantBalance = uint144(_bound(ethAssistantBalance, 0, ETH_SUPPLY));
-        ethMinted = uint144(_bound(ethMinted, 2, ETH_SUPPLY));
-        ethDeposited = uint144(_bound(ethDeposited, ethAssistantBalance < 2 ? 2 - ethAssistantBalance : 0, ethMinted)); // Minimum amount that must be deposited is
+        ethMinted = uint144(_bound(ethMinted, 0, ETH_SUPPLY));
+        ethDeposited = uint144(_bound(ethDeposited, 0, ethMinted)); // Minimum amount that must be deposited is
 
         // Deal ETH
         vm.assume(user != address(0));
-        vm.deal(address(assistant), ethAssistantBalance);
         vm.deal(user, ethMinted);
-
-        // Get vault ID if TEA
-        SirStructs.VaultState memory vaultState = vault.vaultStates(vaultParams);
 
         // For exactness quoteMint needs to retrieve the exact same totalSupply
         vm.mockCall(
             Addresses.ADDR_WETH,
             abi.encodeWithSelector(WETH.totalSupply.selector),
-            abi.encode(WETH.totalSupply() + ethAssistantBalance + ethDeposited)
+            abi.encode(WETH.totalSupply() + ethDeposited)
         );
 
         // Mint TEA or APE and test it against quoteMint
-        bool expectRevert;
+        bool mintMustRevert;
         uint256 amountTokens;
         try
             // Quote mint
-            assistant.quoteMint(isAPE, vaultParams, ethAssistantBalance + ethDeposited)
-        returns (uint256 temp) {
-            expectRevert = false;
-            amountTokens = temp;
+            assistant.quoteMint(isAPE, vaultParams, ethDeposited)
+        returns (uint256 amountTokens_) {
+            mintMustRevert = false;
+            amountTokens = amountTokens_;
         } catch {
-            expectRevert = true;
+            mintMustRevert = true;
             vm.expectRevert();
         }
 
         vm.clearMockedCalls();
 
-        // Mint
         vm.prank(user);
-        uint256 amountTokens_ = assistant.mintWithETH{value: ethDeposited}(
-            isAPE ? SaltedAddress.getAddress(address(vault), vaultState.vaultId) : address(0),
-            vaultState.vaultId,
-            vaultParams
-        );
-        if (!expectRevert) {
-            assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
+        if (mintMustRevert) {
+            // Mint must revert
+            vm.expectRevert();
+            vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited);
+        } else {
+            try
+                // Mint could revert
+                vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited)
+            returns (uint256 amountTokens_) {
+                // Mint does not revert like quoteMint
+                assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
+            } catch {
+                // Mint reverts contrary to quoteMint
+            }
         }
     }
 
@@ -209,135 +211,49 @@ contract AssistantTest is Test {
         // Initialize vault
         _initializeVault(leverageTier);
 
-        // Get vault ID
-        SirStructs.VaultState memory vaultState = vault.vaultStates(vaultParams);
-
         // Initialize vault state
-        address ape = SaltedAddress.getAddress(address(vault), vaultState.vaultId);
-        _initializeState(vaultParams.leverageTier, state, ape);
+        _initializeState(vaultParams.leverageTier, state);
 
         // Bound WETH amounts
         wethMinted = uint144(_bound(wethMinted, 0, ETH_SUPPLY));
         wethDeposited = uint144(_bound(wethDeposited, 0, wethMinted)); // Minimum amount that must be deposited is
 
-        // Deal WETH
-        vm.assume(user != address(0));
-        _dealWETH(user, wethMinted);
-
         // Approve assistant to spend WETH
         vm.prank(user);
-        WETH.approve(address(assistant), wethDeposited);
+        WETH.approve(address(vault), wethDeposited);
 
         // Mint TEA or APE and test it against quoteMint
-        bool mayWork;
+        bool mintMustRevert;
         uint256 amountTokens;
         try
             // Quote mint
             assistant.quoteMint(isAPE, vaultParams, wethDeposited)
-        returns (uint256 temp) {
-            amountTokens = temp;
-            mayWork = true;
+        returns (uint256 amountTokens_) {
+            amountTokens = amountTokens_;
+            mintMustRevert = false;
         } catch {
-            mayWork = false;
-            // vm.writeLine("./mint.log", "quoteMint revert, mint revert");
-            // quoteMint reverts => mint reverts
+            mintMustRevert = true;
         }
 
-        // Mint
-        if (mayWork) {
-            vm.prank(user);
-            try
-                assistant.mint(
-                    isAPE ? SaltedAddress.getAddress(address(vault), vaultState.vaultId) : address(0),
-                    vaultState.vaultId,
-                    vaultParams,
-                    wethDeposited
-                )
-            returns (uint256 amountTokens_) {
-                // vm.writeLine("./mint.log", "quoteMint successful, mint successful");
-                assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
-            } catch {
-                // vm.writeLine("./mint.log", "quoteMint successful, mint revert");
-            }
-        } else {
-            vm.expectRevert();
-            vm.prank(user);
-            assistant.mint(isAPE ? ape : address(0), vaultState.vaultId, vaultParams, wethDeposited);
-        }
-    }
-
-    function testFuzz_mintWithETH(
-        bool isAPE,
-        int8 leverageTier,
-        uint144 ethAssistantBalance,
-        uint144 ethMinted,
-        uint144 ethDeposited,
-        address user,
-        State memory state
-    ) public {
-        // Initialize vault
-        _initializeVault(leverageTier);
-
-        // Get vault ID
-        SirStructs.VaultState memory vaultState = vault.vaultStates(vaultParams);
-
-        // Initialize vault state
-        address ape = SaltedAddress.getAddress(address(vault), vaultState.vaultId);
-        _initializeState(vaultParams.leverageTier, state, ape);
-
-        // Bound ETH amounts
-        ethAssistantBalance = uint144(_bound(ethAssistantBalance, 0, ETH_SUPPLY));
-        ethMinted = uint144(_bound(ethMinted, 0, ETH_SUPPLY));
-        ethDeposited = uint144(_bound(ethDeposited, 0, ethMinted));
-
-        // For exactness quoteMint needs to retrieve the exact same totalSupply
-        vm.mockCall(
-            Addresses.ADDR_WETH,
-            abi.encodeWithSelector(WETH.totalSupply.selector),
-            abi.encode(WETH.totalSupply() + ethAssistantBalance + ethDeposited)
-        );
-
-        // Deal ETH
+        // Deal WETH
         vm.assume(user != address(0));
-        vm.deal(address(assistant), ethAssistantBalance);
-        vm.deal(user, ethMinted);
+        _dealWETH(user, wethMinted);
 
-        // Mint TEA or APE and test it against quoteMint
-        bool mayWork;
-        uint256 amountTokens;
-        try
-            // Quote mint
-            assistant.quoteMint(isAPE, vaultParams, ethAssistantBalance + ethDeposited)
-        returns (uint256 temp) {
-            amountTokens = temp;
-            mayWork = true;
-        } catch {
-            mayWork = false;
-            // vm.writeLine("./mint.log", "quoteMint revert, mint revert");
-            // quoteMint reverts => mint reverts
-        }
-
-        vm.clearMockedCalls();
-
-        // Mint
-        if (mayWork) {
-            vm.prank(user);
+        vm.prank(user);
+        if (mintMustRevert) {
+            // Mint must revert
+            vm.expectRevert();
+            vault.mint(isAPE, vaultParams, wethDeposited);
+        } else {
             try
-                assistant.mintWithETH{value: ethDeposited}(
-                    isAPE ? SaltedAddress.getAddress(address(vault), vaultState.vaultId) : address(0),
-                    vaultState.vaultId,
-                    vaultParams
-                )
+                // Mint could revert
+                vault.mint(isAPE, vaultParams, wethDeposited)
             returns (uint256 amountTokens_) {
-                // vm.writeLine("./mint.log", "quoteMint successful, mint successful");
+                // Mint does not revert like quoteMint
                 assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
             } catch {
-                // vm.writeLine("./mint.log", "quoteMint successful, mint revert");
+                // Mint reverts contrary to quoteMint
             }
-        } else {
-            vm.expectRevert();
-            vm.prank(user);
-            assistant.mintWithETH{value: ethDeposited}(isAPE ? ape : address(0), vaultState.vaultId, vaultParams);
         }
     }
 
@@ -351,109 +267,51 @@ contract AssistantTest is Test {
         // Initialize vault
         _initializeVault(leverageTier);
 
-        // Get vault ID
-        SirStructs.VaultState memory vaultState = vault.vaultStates(vaultParams);
-
         // Initialize vault state
-        address ape = SaltedAddress.getAddress(address(vault), vaultState.vaultId);
-        _initializeState(vaultParams.leverageTier, state, ape);
+        _initializeState(vaultParams.leverageTier, state);
 
         vm.assume(user != address(0));
 
-        // Burn TEA or APE and test it against quoteMint
-        bool mayWork;
+        // Burn TEA or APE and test it against quoteBurn
+        bool burnMustRevert;
         uint144 amountCollateral;
         try
             // Quote mint
             assistant.quoteBurn(isAPE, vaultParams, tokensBurnt)
-        returns (uint144 temp) {
-            amountCollateral = temp;
-            mayWork = true;
+        returns (uint144 amountCollateral_) {
+            amountCollateral = amountCollateral_;
+            burnMustRevert = false;
         } catch {
-            // vm.writeLine("./mint.log", "quoteMint revert, mint revert");
-            // quoteMint reverts => mint reverts
-            vm.expectRevert();
-            vm.prank(user);
-            vault.burn(isAPE, vaultParams, tokensBurnt);
+            burnMustRevert = true;
         }
 
-        // Mint
-        if (mayWork) {
-            vm.prank(user);
-            try vault.burn(isAPE, vaultParams, tokensBurnt) returns (uint144 amountCollateral_) {
-                // vm.writeLine("./mint.log", "quoteMint successful, mint successful");
+        vm.prank(user);
+        if (burnMustRevert) {
+            // Burn must revert
+            vm.expectRevert();
+            vault.burn(isAPE, vaultParams, tokensBurnt);
+        } else {
+            try
+                // Burn could revert
+                vault.burn(isAPE, vaultParams, tokensBurnt)
+            returns (uint144 amountCollateral_) {
+                // Burn does not revert like quoteBurn
                 assertEq(
                     amountCollateral_,
                     amountCollateral,
                     "burn and quoteBurn should return the same amount of collateral"
                 );
             } catch {
-                // vm.writeLine("./mint.log", "quoteMint successful, mint revert");
+                // Burn reverts contrary to quoteBurn
             }
         }
     }
-
-    // function testFuzz_swapAndMintFirstTime(
-    //     bool isAPE,
-    //     int8 leverageTier,
-    //     uint144 usdtMinted,
-    //     uint144 usdtDeposited,
-    //     address user
-    // ) public {
-    //     // Initialize vault
-    //      _initializeVault(leverageTier);
-
-    //     // Bound WETH amounts
-    //     usdtMinted = uint144(_bound(usdtMinted, 2, USDT_SUPPLY));
-    //     usdtDeposited = uint144(_bound(usdtDeposited, 2, usdtMinted)); // Minimum amount that must be deposited is 2
-
-    //     // Deal USDT
-    //     vm.assume(user != address(0));
-    //     _dealUSDT(user, wethDeposited);
-
-    //     // Get vault ID if TEA
-    //     SirStructs.VaultState memory vaultState = vault.vaultStates(vaultParams);
-
-    //     // Approve assistant to spend USDT
-    //     vm.prank(user);
-    //     USDT.approve(address(assistant), usdtDeposited);
-
-    //     // Mint TEA or APE and test it against quoteMint
-    //     bool expectRevert;
-    //     uint256 amountTokens;
-    //     try
-    //         // Quote mint
-    //         assistant.quoteMint(
-    //             isAPE,
-    //             vaultParams,
-    //             wethDeposited
-    //         )
-    //     returns (uint256 temp) {
-    //         expectRevert = false;
-    //         amountTokens = temp;
-    //     } catch {
-    //         expectRevert = true;
-    //         vm.expectRevert();
-    //     }
-
-    //     // Mint
-    //     vm.prank(user);
-    //     uint256 amountTokens_ = assistant.mint(
-    //         isAPE ? SaltedAddress.getAddress(address(vault), vaultState.vaultId) : address(0),
-    //         vaultState.vaultId,
-    //         vaultParams,
-    //         wethDeposited
-    //     );
-    //     if (!expectRevert) {
-    //         assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
-    //     }
-    // }
 
     ////////////////////////////////////////////////////////////////////////
     /////////////// P R I V A T E ////// F U N C T I O N S ////////////////
     //////////////////////////////////////////////////////////////////////
 
-    function _initializeState(int8 leverageTier, State memory state, address ape) private {
+    function _initializeState(int8 leverageTier, State memory state) private {
         state.total = uint144(_bound(state.total, 2, type(uint144).max));
         state.reserve = uint144(_bound(state.reserve, 2, state.total));
         state.collectedFees = uint112(_bound(state.collectedFees, 0, state.total - state.reserve));
@@ -463,14 +321,6 @@ contract AssistantTest is Test {
 
         // Deposit WETH to vault
         _dealWETH(address(vault), state.total);
-
-        // console.log("state.reserve", state.reserve);
-        // console.log("state.tickPriceSatX42", vm.toString(state.tickPriceSatX42));
-        // console.log("state.total", state.total);
-        // console.log("state.collectedFees", state.collectedFees);
-        // console.log("state.teaTotalSupply", state.teaTotalSupply);
-        // console.log("state.teaBalanceVault", state.teaBalanceVault);
-        // console.log("state.apeTotalSupply", state.apeTotalSupply);
 
         bytes32 slotInd = keccak256(
             abi.encode(
@@ -507,6 +357,7 @@ contract AssistantTest is Test {
 
         //////////////////////////////////////////////////////////////////////////
 
+        address ape = AddressClone.getAddress(address(vault), 1);
         vm.store(ape, bytes32(SLOT_APE_SUPPLY), bytes32(state.apeTotalSupply));
         assertEq(IERC20(ape).totalSupply(), state.apeTotalSupply, "Wrong apeTotalSupply used by vm.store");
     }
@@ -528,11 +379,11 @@ contract AssistantTest is Test {
         WETH.transfer(address(to), amount);
     }
 
-    function _dealUSDT(address to, uint256 amount) private {
-        if (amount == 0) return;
-        deal(Addresses.ADDR_USDT, vm.addr(1), amount);
-        vm.prank(vm.addr(1));
-        USDT.approve(address(this), amount);
-        USDT.transferFrom(vm.addr(1), to, amount); // I used transferFrom instead of transfer because of the weird BNB non-standard quirks
-    }
+    // function _dealUSDT(address to, uint256 amount) private {
+    //     if (amount == 0) return;
+    //     deal(Addresses.ADDR_USDT, vm.addr(1), amount);
+    //     vm.prank(vm.addr(1));
+    //     USDT.approve(address(this), amount);
+    //     USDT.transferFrom(vm.addr(1), to, amount); // I used transferFrom instead of transfer because of the weird BNB non-standard quirks
+    // }
 }

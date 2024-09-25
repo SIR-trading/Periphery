@@ -10,7 +10,6 @@ contract DeployPeriphery is Script {
     uint256 deployerPrivateKey;
 
     address public vault;
-    bytes32 public hashCreationCodeAPE;
 
     function setUp() public {
         if (block.chainid == 1) {
@@ -22,17 +21,16 @@ contract DeployPeriphery is Script {
         }
 
         vault = vm.envAddress("VAULT");
-        hashCreationCodeAPE = vm.envBytes32("HASH_CREATION_CODE_APE");
     }
 
-    /** cli for local testnet:  forge script script/DeployPeriphery.s.sol --rpc-url tarp_testnet --broadcast --legacy
-        cli for Sepolia:        forge script script/DeployPeriphery.s.sol --rpc-url sepolia --chain sepolia --broadcast
+    /** @dev cli for local testnet:  forge script script/DeployPeriphery.s.sol --rpc-url tarp_testnet --broadcast --legacy
+        @dev cli for Sepolia:        forge script script/DeployPeriphery.s.sol --rpc-url sepolia --chain sepolia --broadcast
      */
     function run() public {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy assistant
-        address assistant = address(new Assistant(Addresses.ADDR_UNISWAPV3_SWAP_ROUTER, vault, hashCreationCodeAPE));
+        address assistant = address(new Assistant(vault));
         console.log("Assistant deployed at: ", assistant);
 
         vm.stopBroadcast();

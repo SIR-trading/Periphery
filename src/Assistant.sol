@@ -6,169 +6,30 @@ import {SirStructs} from "core/libraries/SirStructs.sol";
 import {SystemConstants} from "core/libraries/SystemConstants.sol";
 import {Fees} from "core/libraries/Fees.sol";
 import {FullMath} from "core/libraries/FullMath.sol";
-import {TransferHelper} from "v3-periphery/libraries/TransferHelper.sol";
-import {ISwapRouter} from "v3-periphery/interfaces/ISwapRouter.sol";
-import {ERC1155, ERC1155TokenReceiver} from "solmate/tokens/ERC1155.sol";
 import {IWETH9, IERC20} from "core/interfaces/IWETH9.sol";
 import {Addresses} from "core/libraries/Addresses.sol";
+import {UniswapPoolAddress} from "core/libraries/UniswapPoolAddress.sol";
+import {Addresses} from "core/libraries/Addresses.sol";
+import {AddressClone} from "core/libraries/AddressClone.sol";
 
-import "forge-std/console.sol";
+// import "forge-std/console.sol";
 
-/** @notice This contract must be approved to spend tokens. I recommend requesting 2^256-1 token
-    @notice approval so that the user only needs to do it once per address.
-    @dev More gas-efficient version of this contract would inherit SwapRouter rather than calling the external SWAP_ROUTER
-    @dev No burn function because the burn function in Vault can be called directly
+/** @notice Helper functions for SIR protocol
  */
-contract Assistant is ERC1155TokenReceiver {
-    error VaultDoesNotExist();
-    error CollateralIsNotWETH();
-    error NoETHSent();
+contract Assistant {
+    error VaultCanBeCreated();
 
-    IWETH9 private constant WETH = IWETH9(Addresses.ADDR_WETH);
+    enum VaultStatus {
+        InvalidVault,
+        NoUniswapPool,
+        VaultCanBeCreated,
+        VaultAlreadyExists
+    }
 
-    bytes32 public immutable HASH_CREATION_CODE_APE;
-
-    ISwapRouter public immutable SWAP_ROUTER; // Uniswap V3 SwapRouter
     IVault public immutable VAULT;
 
-    constructor(address swapRouter_, address vault_, bytes32 hashCreationCodeAPE) {
-        SWAP_ROUTER = ISwapRouter(swapRouter_);
+    constructor(address vault_) {
         VAULT = IVault(vault_);
-        HASH_CREATION_CODE_APE = hashCreationCodeAPE;
-    }
-
-    /** @notice This contract must be approved to spend collateral tokens.
-     */
-    function mint(
-        address ape, // Address of the APE token, or address(0) if TEA
-        uint256 vaultId, // 0 if APE
-        SirStructs.VaultParameters calldata vaultParams,
-        uint144 amountCollateral
-    ) public returns (uint256 amountTokens) {
-        // Transfer collateral from user to VAULT
-        TransferHelper.safeTransferFrom(vaultParams.collateralToken, msg.sender, address(VAULT), amountCollateral);
-
-        // Mint TEA or APE
-        bool isAPE = ape != address(0);
-        amountTokens = VAULT.mint(isAPE, vaultParams);
-
-        // Because this contract called mint. The tokens are now here and need to be transfered to the user
-        if (isAPE) {
-            IERC20(ape).transfer(msg.sender, amountTokens); // No need for TransferHelper because APE is our own token
-        } else {
-            ERC1155(address(VAULT)).safeTransferFrom(address(this), msg.sender, vaultId, amountTokens, "");
-        }
-    }
-
-    function mintWithETH(
-        address ape, // Address of the APE token, or address(0) if TEA
-        uint256 vaultId, // 0 if APE
-        SirStructs.VaultParameters calldata vaultParams
-    ) external payable returns (uint256 amountTokens) {
-        if (vaultParams.collateralToken != Addresses.ADDR_WETH) revert CollateralIsNotWETH();
-
-        // We use balance in case there is some forgotten ETH in the contract
-        uint256 balanceOfETH = address(this).balance;
-        if (balanceOfETH == 0) revert NoETHSent();
-
-        // Wrap ETH into WETH
-        WETH.deposit{value: balanceOfETH}();
-
-        // Transfer WETH to the vault
-        WETH.transfer(address(VAULT), balanceOfETH);
-
-        // Mint TEA or APE
-        bool isAPE = ape != address(0);
-        amountTokens = VAULT.mint(isAPE, vaultParams);
-
-        // Because this contract called mint. The tokens are now here and need to be transfered to the user
-        if (isAPE) {
-            IERC20(ape).transfer(msg.sender, amountTokens); // No need for TransferHelper because APE is our own token
-        } else {
-            ERC1155(address(VAULT)).safeTransferFrom(address(this), msg.sender, vaultId, amountTokens, "");
-        }
-    }
-
-    /** @notice This contract must be approved to spend debt tokens
-        @notice This function requires knowing the market price of the debt token in terms of collateral to choose a sensible minDebtToken
-     */
-    function swapAndMint(
-        address ape, // Address of the APE token, or address(0) if TEA
-        uint256 vaultId, // 0 if APE
-        SirStructs.VaultParameters calldata vaultParams,
-        uint256 amountDebtToken,
-        uint256 minCollateral,
-        uint24 uniswapFeeTier
-    ) external returns (uint256 amountTokens) {
-        // Retrieve debt tokens from user
-        TransferHelper.safeTransferFrom(vaultParams.debtToken, msg.sender, address(this), amountDebtToken);
-
-        // Approve SWAP_ROUTER to spend debtToken from this contract
-        TransferHelper.safeApprove(vaultParams.debtToken, address(SWAP_ROUTER), amountDebtToken);
-
-        // Swap debt token for collateral AND send them to the VAULT directly
-        SWAP_ROUTER.exactInputSingle(
-            ISwapRouter.ExactInputSingleParams({
-                tokenIn: vaultParams.debtToken,
-                tokenOut: vaultParams.collateralToken,
-                fee: uniswapFeeTier,
-                recipient: address(VAULT),
-                deadline: block.timestamp,
-                amountIn: amountDebtToken,
-                amountOutMinimum: minCollateral,
-                sqrtPriceLimitX96: 0
-            })
-        );
-
-        // Mint TEA or APE
-        bool isAPE = ape != address(0);
-        amountTokens = VAULT.mint(isAPE, vaultParams);
-
-        // Because this contract called mint. The tokens are now here and need to be transfered to the user
-        if (isAPE) {
-            IERC20(ape).transfer(msg.sender, amountTokens); // No need for TransferHelper because APE is our own token
-        } else {
-            ERC1155(address(VAULT)).safeTransferFrom(address(this), msg.sender, vaultId, amountTokens, "");
-        }
-    }
-
-    function burnAndSwap(
-        address ape, // Address of the APE token, or address(0) if TEA
-        uint256 vaultId, // 0 if APE
-        SirStructs.VaultParameters calldata vaultParams,
-        uint256 amountTokens,
-        uint256 minDebtToken,
-        uint24 uniswapFeeTier
-    ) external returns (uint256 amountDebtToken) {
-        // Are we burning APE or TEA?
-        bool isAPE = ape != address(0);
-
-        // Transfer tokens from user
-        if (isAPE) {
-            IERC20(ape).transferFrom(msg.sender, address(this), amountTokens); // No need for TransferHelper because APE is our own token
-        } else {
-            ERC1155(address(VAULT)).safeTransferFrom(msg.sender, address(this), vaultId, amountTokens, "");
-        }
-
-        // Burn TEA or APE
-        uint144 amountCollateral = VAULT.burn(isAPE, vaultParams, amountTokens);
-
-        // Approve SWAP_ROUTER to spend collateralToken from this contract
-        TransferHelper.safeApprove(vaultParams.collateralToken, address(SWAP_ROUTER), amountCollateral);
-
-        // Swap collateral for debt token AND send them to the user
-        amountDebtToken = SWAP_ROUTER.exactOutputSingle(
-            ISwapRouter.ExactOutputSingleParams({
-                tokenIn: vaultParams.collateralToken,
-                tokenOut: vaultParams.debtToken,
-                fee: uniswapFeeTier,
-                recipient: msg.sender,
-                deadline: block.timestamp,
-                amountOut: minDebtToken,
-                amountInMaximum: amountCollateral,
-                sqrtPriceLimitX96: 0
-            })
-        );
     }
 
     /** @notice It returns the ideal price of TEA if there were no fees for withdrawing.
@@ -198,7 +59,42 @@ contract Assistant is ERC1155TokenReceiver {
 
         // Get supply of APE
         SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
-        den = IERC20(getAddressAPE(address(VAULT), vaultState.vaultId)).totalSupply();
+        den = IERC20(getAddressAPE(vaultState.vaultId)).totalSupply();
+    }
+
+    function getVaultStatus(SirStructs.VaultParameters calldata vaultParams) external view returns (VaultStatus) {
+        // Check if the token addresses are a smart contract
+        if (vaultParams.collateralToken.code.length == 0) return VaultStatus.InvalidVault;
+        if (vaultParams.debtToken.code.length == 0) return VaultStatus.NoUniswapPool;
+
+        // Check if the token returns total supply
+        (bool success, ) = vaultParams.collateralToken.staticcall(abi.encodeWithSelector(IERC20.totalSupply.selector));
+        if (!success) return VaultStatus.InvalidVault;
+        (success, ) = vaultParams.debtToken.staticcall(abi.encodeWithSelector(IERC20.totalSupply.selector));
+        if (!success) return VaultStatus.InvalidVault;
+
+        // Check if the leverage tier is valid
+        if (
+            vaultParams.leverageTier < SystemConstants.MIN_LEVERAGE_TIER ||
+            vaultParams.leverageTier > SystemConstants.MAX_LEVERAGE_TIER
+        ) return VaultStatus.InvalidVault;
+
+        // Check if a Uniswap pool exists
+        if (
+            !_checkFeeTierExists(vaultParams, 100) &&
+            !_checkFeeTierExists(vaultParams, 500) &&
+            !_checkFeeTierExists(vaultParams, 3000) &&
+            !_checkFeeTierExists(vaultParams, 10000)
+        ) return VaultStatus.NoUniswapPool;
+
+        // Check if vault already exists
+        SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
+        if (vaultState.vaultId == 0) return VaultStatus.VaultCanBeCreated;
+        return VaultStatus.VaultAlreadyExists;
+    }
+
+    function getAddressAPE(uint48 vaultId) public view returns (address) {
+        return AddressClone.getAddress(address(VAULT), vaultId);
     }
 
     /*////////////////////////////////////////////////////////////////
@@ -217,7 +113,7 @@ contract Assistant is ERC1155TokenReceiver {
         // Get all the parameters
         SirStructs.SystemParameters memory systemParams = VAULT.systemParams();
         SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
-        if (vaultState.vaultId == 0) revert VaultDoesNotExist();
+        if (vaultState.vaultId == 0) revert VaultCanBeCreated();
 
         // Get current reserves
         SirStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
@@ -239,7 +135,7 @@ contract Assistant is ERC1155TokenReceiver {
             uint256 collateralIn = (uint256(amountCollateral) * feeNum) / feeDen;
 
             // Get supply of APE
-            address ape = getAddressAPE(address(VAULT), vaultState.vaultId);
+            address ape = getAddressAPE(vaultState.vaultId);
             uint256 supplyAPE = IERC20(ape).totalSupply();
 
             // Calculate tokens
@@ -285,14 +181,14 @@ contract Assistant is ERC1155TokenReceiver {
         // Get all the parameters
         SirStructs.SystemParameters memory systemParams = VAULT.systemParams();
         SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
-        if (vaultState.vaultId == 0) revert VaultDoesNotExist();
+        if (vaultState.vaultId == 0) revert VaultCanBeCreated();
 
         // Get current reserves
         SirStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
 
         if (isAPE) {
             // Get supply of APE
-            address ape = getAddressAPE(address(VAULT), vaultState.vaultId);
+            address ape = getAddressAPE(vaultState.vaultId);
             uint256 supplyAPE = IERC20(ape).totalSupply();
 
             // Get collateralOut
@@ -326,18 +222,23 @@ contract Assistant is ERC1155TokenReceiver {
         }
     }
 
-    function getAddressAPE(address deployer, uint256 vaultId) public view returns (address) {
-        return
-            address(
-                uint160(
-                    uint(keccak256(abi.encodePacked(bytes1(0xff), deployer, bytes32(vaultId), HASH_CREATION_CODE_APE)))
-                )
-            );
-    }
-
     /*////////////////////////////////////////////////////////////////
                             PRIVATE FUNCTIONS
     ////////////////////////////////////////////////////////////////*/
+
+    function _checkFeeTierExists(
+        SirStructs.VaultParameters calldata vaultParams,
+        uint24 feeTier
+    ) private view returns (bool) {
+        return
+            UniswapPoolAddress
+                .computeAddress(
+                    Addresses.ADDR_UNISWAPV3_FACTORY,
+                    UniswapPoolAddress.getPoolKey(vaultParams.collateralToken, vaultParams.debtToken, feeTier)
+                )
+                .code
+                .length != 0;
+    }
 
     function _amountFirstMint(address collateral, uint144 collateralIn) private view returns (uint256 amount) {
         uint256 collateralTotalSupply = IERC20(collateral).totalSupply();
