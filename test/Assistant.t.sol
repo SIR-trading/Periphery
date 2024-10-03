@@ -82,17 +82,40 @@ contract AssistantTest is Test {
         WETH.approve(address(vault), type(uint256).max);
     }
 
-    function testFuzz_getVaultStatus(int8 leverageTier) public view {
-        leverageTier = int8(_bound(leverageTier, SystemConstants.MIN_LEVERAGE_TIER, SystemConstants.MAX_LEVERAGE_TIER));
+    enum VaultStatus {
+        InvalidVault,
+        NoUniswapPool,
+        VaultCanBeCreated,
+        VaultAlreadyExists
+    }
 
-        SirStructs.VaultParameters memory vaultParams_ = SirStructs.VaultParameters(
-            Addresses.ADDR_USDC,
-            Addresses.ADDR_WETH,
-            leverageTier
-        );
+    function testFuzz_getVaultAlreadyExistsStatus(int8 leverageTier) public {
+        // Initialize vault
+        _initializeVault(leverageTier);
 
-        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams_));
+        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
+        assertEq(vaultStatus, uint256(VaultStatus.VaultAlreadyExists));
+    }
+
+    function test_getVaultDoesNotExistsStatus() public view {
+        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
         assertEq(vaultStatus, uint256(VaultStatus.VaultCanBeCreated));
+    }
+
+    function test_getVaultWithNoUniswapPool() public {
+        vaultParams.collateralToken = Addresses.ADDR_BNB;
+        vaultParams.debtToken = Addresses.ADDR_FRAX;
+
+        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
+        assertEq(vaultStatus, uint256(VaultStatus.NoUniswapPool));
+    }
+
+    function test_getVaultWithWrongAddress() public {
+        vaultParams.collateralToken = Addresses.ADDR_WETH;
+        vaultParams.debtToken = Addresses.ADDR_UNISWAPV3_FACTORY;
+
+        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
+        assertEq(vaultStatus, uint256(VaultStatus.InvalidVault));
     }
 
     /** @dev Important to run first quoteMint before mint changes the state of the Vault
@@ -371,42 +394,6 @@ contract AssistantTest is Test {
                 // Burn reverts contrary to quoteBurn
             }
         }
-    }
-
-    enum VaultStatus {
-        InvalidVault,
-        NoUniswapPool,
-        VaultCanBeCreated,
-        VaultAlreadyExists
-    }
-
-    function testFuzz_getVaultAlreadyExistsStatus(int8 leverageTier) public {
-        // Initialize vault
-        _initializeVault(leverageTier);
-
-        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
-        assertEq(vaultStatus, uint256(VaultStatus.VaultAlreadyExists));
-    }
-
-    function test_getVaultDoesNotExistsStatus() public view {
-        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
-        assertEq(vaultStatus, uint256(VaultStatus.VaultCanBeCreated));
-    }
-
-    function test_getVaultWithNoUniswapPool() public {
-        vaultParams.collateralToken = Addresses.ADDR_BNB;
-        vaultParams.debtToken = Addresses.ADDR_FRAX;
-
-        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
-        assertEq(vaultStatus, uint256(VaultStatus.NoUniswapPool));
-    }
-
-    function test_getVaultWithWrongAddress() public {
-        vaultParams.collateralToken = Addresses.ADDR_WETH;
-        vaultParams.debtToken = Addresses.ADDR_UNISWAPV3_FACTORY;
-
-        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
-        assertEq(vaultStatus, uint256(VaultStatus.InvalidVault));
     }
 
     ////////////////////////////////////////////////////////////////////////
