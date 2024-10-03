@@ -31,6 +31,15 @@ contract Assistant {
         VAULT = IVault(vault_);
     }
 
+    function getReserves(uint48[] calldata vaultIds) external view returns (SirStructs.Reserves[] memory reserves) {
+        reserves = new SirStructs.Reserves[](vaultIds.length);
+        SirStructs.VaultParameters memory vaultParams;
+        for (uint256 i = 0; i < vaultIds.length; i++) {
+            vaultParams = VAULT.paramsById(vaultIds[i]);
+            reserves[i] = VAULT.getReserves(vaultParams);
+        }
+    }
+
     /** @notice It returns the ideal price of TEA if there were no fees for withdrawing.
         @notice To get the price as [units of Collateral][per unit of TEA], divide num by den.
      */
@@ -64,7 +73,7 @@ contract Assistant {
     function getVaultStatus(SirStructs.VaultParameters calldata vaultParams) external view returns (VaultStatus) {
         // Check if the token addresses are a smart contract
         if (vaultParams.collateralToken.code.length == 0) return VaultStatus.InvalidVault;
-        if (vaultParams.debtToken.code.length == 0) return VaultStatus.NoUniswapPool;
+        if (vaultParams.debtToken.code.length == 0) return VaultStatus.InvalidVault;
 
         // Check if the token returns total supply
         (bool success, ) = vaultParams.collateralToken.staticcall(abi.encodeWithSelector(IERC20.totalSupply.selector));

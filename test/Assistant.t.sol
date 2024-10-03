@@ -18,10 +18,9 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
 contract AssistantTest is Test {
     struct State {
-        uint144 reserve;
+        uint256 totalReserve;
+        uint256 collectedFees;
         int64 tickPriceSatX42;
-        uint144 total;
-        uint112 collectedFees;
         uint128 teaTotalSupply;
         uint128 teaBalanceVault;
         uint256 apeTotalSupply;
@@ -32,7 +31,7 @@ contract AssistantTest is Test {
     uint256 constant SLOT_TEA_SUPPLY = 4;
     uint256 constant SLOT_APE_SUPPLY = 5;
     uint256 constant SLOT_VAULT_STATE = 7;
-    uint256 constant SLOT_TOKEN_STATE = 8;
+    uint256 constant SLOT_RESERVES_TOTAL = 8;
 
     IWETH9 private constant WETH = IWETH9(Addresses.ADDR_WETH);
     IERC20 private constant USDT = IERC20(Addresses.ADDR_USDT);
@@ -81,6 +80,19 @@ contract AssistantTest is Test {
 
         // Approve Assistant to spend WETH
         WETH.approve(address(vault), type(uint256).max);
+    }
+
+    function testFuzz_getVaultStatus(int8 leverageTier) public view {
+        leverageTier = int8(_bound(leverageTier, SystemConstants.MIN_LEVERAGE_TIER, SystemConstants.MAX_LEVERAGE_TIER));
+
+        SirStructs.VaultParameters memory vaultParams_ = SirStructs.VaultParameters(
+            Addresses.ADDR_USDC,
+            Addresses.ADDR_WETH,
+            leverageTier
+        );
+
+        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams_));
+        assertEq(vaultStatus, uint256(VaultStatus.VaultCanBeCreated));
     }
 
     /** @dev Important to run first quoteMint before mint changes the state of the Vault
@@ -402,15 +414,14 @@ contract AssistantTest is Test {
     //////////////////////////////////////////////////////////////////////
 
     function _initializeState(int8 leverageTier, State memory state) private {
-        state.total = uint144(_bound(state.total, 2, type(uint144).max));
-        state.reserve = uint144(_bound(state.reserve, 2, state.total));
-        state.collectedFees = uint112(_bound(state.collectedFees, 0, state.total - state.reserve));
+        state.totalReserve = _bound(state.totalReserve, 2, ETH_SUPPLY);
+        state.collectedFees = _bound(state.collectedFees, 0, ETH_SUPPLY);
 
         state.teaTotalSupply = uint128(_bound(state.teaTotalSupply, 0, SystemConstants.TEA_MAX_SUPPLY));
         state.teaBalanceVault = uint128(_bound(state.teaBalanceVault, 0, state.teaTotalSupply));
 
         // Deposit WETH to vault
-        _dealWETH(address(vault), state.total);
+        _dealWETH(address(vault), state.totalReserve + state.collectedFees);
 
         bytes32 slotInd = keccak256(
             abi.encode(
@@ -427,23 +438,31 @@ contract AssistantTest is Test {
         slot >>= 208;
         uint48 vaultId_ = uint48(slot);
 
-        vm.store(address(vault), slotInd, bytes32(abi.encodePacked(vaultId_, state.tickPriceSatX42, state.reserve)));
+        vm.store(
+            address(vault),
+            slotInd,
+            bytes32(abi.encodePacked(vaultId_, state.tickPriceSatX42, uint144(state.totalReserve)))
+        );
 
         SirStructs.VaultState memory vaultState = vault.vaultStates(
             SirStructs.VaultParameters(Addresses.ADDR_USDT, Addresses.ADDR_WETH, leverageTier)
         );
-        assertEq(vaultState.reserve, state.reserve, "Wrong reserve used by vm.store");
+        assertEq(vaultState.reserve, state.totalReserve, "Wrong reserve used by vm.store");
         assertEq(vaultState.tickPriceSatX42, state.tickPriceSatX42, "Wrong tickPriceSatX42 used by vm.store");
         assertEq(vaultState.vaultId, vaultId_, "Wrong vaultId used by vm.store");
 
         //////////////////////////////////////////////////////////////////////////
 
-        slotInd = keccak256(abi.encode(Addresses.ADDR_WETH, bytes32(uint256(SLOT_TOKEN_STATE))));
-        vm.store(address(vault), slotInd, bytes32(abi.encodePacked(state.total, state.collectedFees)));
+        slotInd = keccak256(abi.encode(Addresses.ADDR_WETH, bytes32(uint256(SLOT_RESERVES_TOTAL))));
+        vm.store(address(vault), slotInd, bytes32(state.totalReserve));
 
-        SirStructs.CollateralState memory collateralState = vault.collateralStates(Addresses.ADDR_WETH);
-        assertEq(collateralState.totalFeesToStakers, state.collectedFees, "Wrong collectedFees used by vm.store");
-        assertEq(collateralState.total, state.total, "Wrong total used by vm.store");
+        uint256 totalReserve_ = vault.totalReserves(Addresses.ADDR_WETH);
+        assertEq(
+            WETH.balanceOf(address(vault)) - state.totalReserve,
+            state.collectedFees,
+            "Wrong collectedFees used by vm.store"
+        );
+        assertEq(totalReserve_, state.totalReserve, "Wrong total used by vm.store");
 
         //////////////////////////////////////////////////////////////////////////
 

@@ -15,6 +15,8 @@ interface IAssistant {
         VaultAlreadyExists
     }
 
+    function getReserves(uint48[] calldata vaultIds) external view returns (SirStructs.Reserves[] memory reserves);
+
     /** @notice It returns the ideal price of TEA if there were no fees for withdrawing.
         @notice To get the price as [units of Collateral][per unit of TEA], divide num by den.
      */
