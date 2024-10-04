@@ -89,6 +89,7 @@ contract AssistantTest is Test {
         VaultAlreadyExists
     }
 
+
     function testFuzz_getVaultAlreadyExistsStatus(int8 leverageTier) public {
         // Initialize vault
         _initializeVault(leverageTier);
@@ -116,6 +117,19 @@ contract AssistantTest is Test {
 
         uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
         assertEq(vaultStatus, uint256(VaultStatus.InvalidVault));
+    }
+
+    function test_test() public {
+        uint256 vaultStatus = uint256(
+            assistant.getVaultStatus(
+                SirStructs.VaultParameters({
+                    debtToken: address(00xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48),
+                    collateralToken: address(00xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2),
+                    leverageTier: 2
+                })
+            )
+        );
+        assertEq(vaultStatus, uint256(VaultStatus.VaultCanBeCreated));
     }
 
     /** @dev Important to run first quoteMint before mint changes the state of the Vault
