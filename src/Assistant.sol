@@ -7,7 +7,6 @@ import {SystemConstants} from "core/libraries/SystemConstants.sol";
 import {Fees} from "core/libraries/Fees.sol";
 import {FullMath} from "core/libraries/FullMath.sol";
 import {IWETH9, IERC20} from "core/interfaces/IWETH9.sol";
-import {Addresses} from "core/libraries/Addresses.sol";
 import {UniswapPoolAddress} from "core/libraries/UniswapPoolAddress.sol";
 import {AddressClone} from "core/libraries/AddressClone.sol";
 
@@ -16,6 +15,8 @@ import "forge-std/console.sol";
 /** @notice Helper functions for SIR protocol
  */
 contract Assistant {
+    address private immutable UNISWAPV3_FACTORY;
+
     error VaultCanBeCreated();
 
     enum VaultStatus {
@@ -27,7 +28,8 @@ contract Assistant {
 
     IVault public immutable VAULT;
 
-    constructor(address vault_) {
+    constructor(address vault_, address uniswapV3Factory) {
+        UNISWAPV3_FACTORY = uniswapV3Factory;
         VAULT = IVault(vault_);
     }
 
@@ -241,7 +243,7 @@ contract Assistant {
         return
             UniswapPoolAddress
                 .computeAddress(
-                    Addresses.ADDR_UNISWAPV3_FACTORY,
+                    UNISWAPV3_FACTORY,
                     UniswapPoolAddress.getPoolKey(vaultParams.collateralToken, vaultParams.debtToken, feeTier)
                 )
                 .code

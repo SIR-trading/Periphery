@@ -55,19 +55,19 @@ contract AssistantTest is Test {
         vm.createSelectFork("mainnet", 18128102);
 
         // Deploy oracle
-        address oracle = address(new Oracle());
+        address oracle = address(new Oracle(Addresses.ADDR_UNISWAPV3_FACTORY));
 
         // Deploy SystemControl
         address systemControl = address(new SystemControl());
 
         // Deploy SIR token contract
-        address payable sir = payable(address(new SIR()));
+        address payable sir = payable(address(new SIR(Addresses.ADDR_WETH)));
 
         // Deploy APE implementation
         address ape = address(new APE());
 
         // Deploy Vault
-        vault = new Vault(systemControl, sir, oracle, ape);
+        vault = new Vault(systemControl, sir, oracle, ape, Addresses.ADDR_WETH);
 
         // Initialize SIR
         SIR(sir).initialize(address(vault));
@@ -76,7 +76,7 @@ contract AssistantTest is Test {
         SystemControl(systemControl).initialize(address(vault));
 
         // Deploy Assistant
-        assistant = new Assistant(address(vault));
+        assistant = new Assistant(address(vault), Addresses.ADDR_UNISWAPV3_FACTORY);
 
         // Approve Assistant to spend WETH
         WETH.approve(address(vault), type(uint256).max);
@@ -88,7 +88,6 @@ contract AssistantTest is Test {
         VaultCanBeCreated,
         VaultAlreadyExists
     }
-
 
     function testFuzz_getVaultAlreadyExistsStatus(int8 leverageTier) public {
         // Initialize vault
@@ -117,19 +116,6 @@ contract AssistantTest is Test {
 
         uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
         assertEq(vaultStatus, uint256(VaultStatus.InvalidVault));
-    }
-
-    function test_test() public {
-        uint256 vaultStatus = uint256(
-            assistant.getVaultStatus(
-                SirStructs.VaultParameters({
-                    debtToken: address(00xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48),
-                    collateralToken: address(00xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2),
-                    leverageTier: 2
-                })
-            )
-        );
-        assertEq(vaultStatus, uint256(VaultStatus.VaultCanBeCreated));
     }
 
     /** @dev Important to run first quoteMint before mint changes the state of the Vault

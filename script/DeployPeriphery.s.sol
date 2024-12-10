@@ -5,6 +5,7 @@ import "forge-std/Script.sol";
 
 import {Assistant} from "src/Assistant.sol";
 import {Addresses} from "core/libraries/Addresses.sol";
+import {AddressesSepolia} from "core/libraries/AddressesSepolia.sol";
 
 contract DeployPeriphery is Script {
     uint256 deployerPrivateKey;
@@ -30,7 +31,12 @@ contract DeployPeriphery is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Deploy assistant
-        address assistant = address(new Assistant(vault));
+        address assistant = address(
+            new Assistant(
+                vault,
+                block.chainid == 1 ? Addresses.ADDR_UNISWAPV3_FACTORY : AddressesSepolia.ADDR_UNISWAPV3_FACTORY
+            )
+        );
         console.log("Assistant deployed at: ", assistant);
 
         vm.stopBroadcast();
