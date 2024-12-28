@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import {IVault} from "core/interfaces/IVault.sol";
 import {SirStructs} from "core/libraries/SirStructs.sol";
 import {SystemConstants} from "core/libraries/SystemConstants.sol";
-import {Fees} from "core/libraries/Fees.sol";
 import {FullMath} from "core/libraries/FullMath.sol";
 import {IWETH9, IERC20} from "core/interfaces/IWETH9.sol";
 import {UniswapPoolAddress} from "core/libraries/UniswapPoolAddress.sol";
@@ -17,7 +16,9 @@ import "forge-std/console.sol";
 contract Assistant {
     address private immutable UNISWAPV3_FACTORY;
 
-    error VaultCanBeCreated();
+    error VaultDoesNotExist();
+    error DepositTooSmall();
+    error TEAMaxSupplyExceeded();
 
     enum VaultStatus {
         InvalidVault,
@@ -42,7 +43,7 @@ contract Assistant {
         }
     }
 
-    /** @notice It returns the ideal price of TEA if there were no fees for withdrawing.
+    /** @notice It returns the ideal price of TEA.
         @notice To get the price as [units of Collateral][per unit of TEA], divide num by den.
      */
     function priceOfTEA(
@@ -112,22 +113,23 @@ contract Assistant {
     ////////////////////////////////////////////////////////////////*/
 
     /** @dev Static function so we do not need to save on SLOADs
-        @dev If quoteMint reverts, mint will revert as well; vice versa is not true.
-        @return amountTokens that would be minted for a given amount of collateral
+        @dev If quoteMint reverts, mint will revert as well; vice versa is not necessarily true.
+        @return amountTokens that would be obtained by depositing amountCollateral
      */
     function quoteMint(
         bool isAPE,
         SirStructs.VaultParameters calldata vaultParams,
         uint144 amountCollateral
     ) external view returns (uint256 amountTokens) {
-        // Get all the parameters
-        SirStructs.SystemParameters memory systemParams = VAULT.systemParams();
+        // Get vault state
         SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
-        if (vaultState.vaultId == 0) revert VaultCanBeCreated();
+        if (vaultState.vaultId == 0) revert VaultDoesNotExist();
+        if (amountCollateral == 0) revert DepositTooSmall();
 
         // Get current reserves
         SirStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
 
+        SirStructs.SystemParameters memory systemParams = VAULT.systemParams();
         if (isAPE) {
             // Compute how much collateral actually gets deposited
             uint256 feeNum;
@@ -153,45 +155,50 @@ contract Assistant {
                 ? collateralIn + reserves.reserveApes
                 : FullMath.mulDiv(supplyAPE, collateralIn, reserves.reserveApes);
         } else {
-            // Get current tax
-            uint8 tax = VAULT.vaultTax(vaultState.vaultId);
-
             // Compute how much collateral actually gets deposited
-            SirStructs.Fees memory fees = Fees.hiddenFeeTEA(amountCollateral, systemParams.lpFee, tax);
-            reserves.reserveLPers += fees.collateralFeeToGentlemen;
+            uint256 feeNum = 10000;
+            uint256 feeDen = 10000 + uint256(systemParams.lpFee);
 
             // Get supply of TEA
             uint256 supplyTEA = VAULT.totalSupply(vaultState.vaultId);
 
-            // POL
-            uint256 amountPOL = supplyTEA == 0
-                ? _amountFirstMint(vaultParams.collateralToken, fees.collateralFeeToProtocol + reserves.reserveLPers)
-                : FullMath.mulDiv(supplyTEA, fees.collateralFeeToProtocol, reserves.reserveLPers);
-            supplyTEA += amountPOL;
-
-            // LPer fees
-            reserves.reserveLPers += fees.collateralFeeToProtocol;
-
             // Calculate tokens
             amountTokens = supplyTEA == 0
-                ? _amountFirstMint(vaultParams.collateralToken, fees.collateralInOrWithdrawn + reserves.reserveLPers)
-                : FullMath.mulDiv(supplyTEA, fees.collateralInOrWithdrawn, reserves.reserveLPers);
+                ? _amountFirstMint(vaultParams.collateralToken, amountCollateral + reserves.reserveLPers)
+                : FullMath.mulDiv(supplyTEA, amountCollateral, reserves.reserveLPers);
+
+            // Check that total supply does not overflow
+            if (amountTokens > SystemConstants.TEA_MAX_SUPPLY - supplyTEA) revert TEAMaxSupplyExceeded();
+
+            // Get collateralIn
+            uint256 collateralIn = uint144((uint256(amountCollateral) * feeNum) / feeDen);
+
+            // Minter's share of TEA
+            amountTokens = FullMath.mulDiv(
+                amountTokens,
+                collateralIn,
+                supplyTEA == 0
+                    ? amountCollateral + reserves.reserveLPers // In the first mint, reserveLPers contains orphaned fees from apes
+                    : amountCollateral
+            );
         }
+
+        if (amountTokens == 0) revert DepositTooSmall();
     }
 
     /** @dev Static function so we do not need to save on SLOADs
-        @dev If quoteBurn reverts, burn in Vault.sol will revert as well; vice versa is not true.
-        @return amountCollateral that would be obtained by burning a given amount of collateral
+        @dev If quoteBurn reverts, burn in Vault.sol will revert as well; vice versa is not necessarily true.
+        @return amountCollateral that would be obtained by burning amountTokens
      */
     function quoteBurn(
         bool isAPE,
         SirStructs.VaultParameters calldata vaultParams,
         uint256 amountTokens
     ) external view returns (uint144 amountCollateral) {
-        // Get all the parameters
-        SirStructs.SystemParameters memory systemParams = VAULT.systemParams();
+        // Get vault state
         SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
-        if (vaultState.vaultId == 0) revert VaultCanBeCreated();
+        if (vaultState.vaultId == 0) revert VaultDoesNotExist();
+        if (amountTokens == 0) revert DepositTooSmall();
 
         // Get current reserves
         SirStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
@@ -205,6 +212,7 @@ contract Assistant {
             uint256 collateralOut = uint144(FullMath.mulDiv(reserves.reserveApes, amountTokens, supplyAPE));
 
             // Compute collateral withdrawn
+            SirStructs.SystemParameters memory systemParams = VAULT.systemParams();
             uint256 feeNum;
             uint256 feeDen;
             if (vaultParams.leverageTier >= 0) {
@@ -222,13 +230,8 @@ contract Assistant {
             // Get supply of TEA
             uint256 supplyTEA = VAULT.totalSupply(vaultState.vaultId);
 
-            // Get collateralOut
-            uint256 collateralOut = uint144(FullMath.mulDiv(reserves.reserveLPers, amountTokens, supplyTEA));
-
-            // Compute collateral withdrawn
-            uint256 feeNum = 10000;
-            uint256 feeDen = 10000 + uint256(systemParams.lpFee);
-            amountCollateral = uint144((collateralOut * feeNum) / feeDen);
+            // Get amount of collateral that would be withdrawn
+            amountCollateral = uint144(FullMath.mulDiv(reserves.reserveLPers, amountTokens, supplyTEA));
         }
     }
 
@@ -250,10 +253,10 @@ contract Assistant {
                 .length != 0;
     }
 
-    function _amountFirstMint(address collateral, uint144 collateralIn) private view returns (uint256 amount) {
+    function _amountFirstMint(address collateral, uint144 collateralDeposited) private view returns (uint256 amount) {
         uint256 collateralTotalSupply = IERC20(collateral).totalSupply();
-        amount = collateralTotalSupply > SystemConstants.TEA_MAX_SUPPLY
-            ? FullMath.mulDiv(SystemConstants.TEA_MAX_SUPPLY, collateralIn, collateralTotalSupply)
-            : collateralIn;
+        amount = collateralTotalSupply > SystemConstants.TEA_MAX_SUPPLY / 1e6
+            ? FullMath.mulDiv(SystemConstants.TEA_MAX_SUPPLY, collateralDeposited, collateralTotalSupply)
+            : collateralDeposited * 1e6;
     }
 }
