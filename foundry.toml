@@ -4,6 +4,7 @@ out = "out"
 libs = ["lib"]
 fs_permissions = [{ access = "read-write", path = "./"}]
 # solc = "0.8.15"
+evm_version = "cancun"
 
 [fuzz]
 runs = 100

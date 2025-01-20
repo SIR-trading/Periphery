@@ -30,8 +30,8 @@ contract AssistantTest is Test {
 
     uint256 constant SLOT_TEA_SUPPLY = 4;
     uint256 constant SLOT_APE_SUPPLY = 5;
-    uint256 constant SLOT_VAULT_STATE = 7;
-    uint256 constant SLOT_RESERVES_TOTAL = 8;
+    uint256 constant SLOT_VAULT_STATE = 9;
+    uint256 constant SLOT_RESERVES_TOTAL = 10;
 
     IWETH9 private constant WETH = IWETH9(Addresses.ADDR_WETH);
     IERC20 private constant USDT = IERC20(Addresses.ADDR_USDT);
@@ -61,7 +61,7 @@ contract AssistantTest is Test {
         address systemControl = address(new SystemControl());
 
         // Deploy SIR token contract
-        address payable sir = payable(address(new SIR(Addresses.ADDR_WETH)));
+        address payable sir = payable(address(new SIR(Addresses.ADDR_WETH, systemControl)));
 
         // Deploy APE implementation
         address ape = address(new APE());
@@ -73,7 +73,7 @@ contract AssistantTest is Test {
         SIR(sir).initialize(address(vault));
 
         // Initialize SystemControl
-        SystemControl(systemControl).initialize(address(vault));
+        SystemControl(systemControl).initialize(address(vault), sir);
 
         // Deploy Assistant
         assistant = new Assistant(address(vault), Addresses.ADDR_UNISWAPV3_FACTORY);
@@ -159,11 +159,11 @@ contract AssistantTest is Test {
         if (mintMustRevert) {
             // Mint must revert
             vm.expectRevert();
-            vault.mint(isAPE, vaultParams, wethDeposited);
+            vault.mint(isAPE, vaultParams, wethDeposited, 0);
         } else {
             try
                 // Mint could revert
-                vault.mint(isAPE, vaultParams, wethDeposited)
+                vault.mint(isAPE, vaultParams, wethDeposited, 0)
             returns (uint256 amountTokens_) {
                 // Mint does not revert like quoteMint
                 assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
@@ -221,11 +221,11 @@ contract AssistantTest is Test {
         if (mintMustRevert) {
             // Mint must revert
             vm.expectRevert();
-            vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited);
+            vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited, 0);
         } else {
             try
                 // Mint could revert
-                vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited)
+                vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited, 0)
             returns (uint256 amountTokens_) {
                 // Mint does not revert like quoteMint
                 assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
@@ -278,11 +278,11 @@ contract AssistantTest is Test {
         if (mintMustRevert) {
             // Mint must revert
             vm.expectRevert();
-            vault.mint(isAPE, vaultParams, wethDeposited);
+            vault.mint(isAPE, vaultParams, wethDeposited, 0);
         } else {
             try
                 // Mint could revert
-                vault.mint(isAPE, vaultParams, wethDeposited)
+                vault.mint(isAPE, vaultParams, wethDeposited, 0)
             returns (uint256 amountTokens_) {
                 // Mint does not revert like quoteMint
                 assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
@@ -332,11 +332,11 @@ contract AssistantTest is Test {
         if (mintMustRevert) {
             // Mint must revert
             vm.expectRevert();
-            vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited);
+            vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited, 0);
         } else {
             try
                 // Mint could revert
-                vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited)
+                vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited, 0)
             returns (uint256 amountTokens_) {
                 // Mint does not revert like quoteMint
                 assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");

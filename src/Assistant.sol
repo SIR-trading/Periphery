@@ -17,7 +17,7 @@ contract Assistant {
     address private immutable UNISWAPV3_FACTORY;
 
     error VaultDoesNotExist();
-    error DepositTooSmall();
+    error AmountTooLow();
     error TEAMaxSupplyExceeded();
 
     enum VaultStatus {
@@ -124,7 +124,7 @@ contract Assistant {
         // Get vault state
         SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
         if (vaultState.vaultId == 0) revert VaultDoesNotExist();
-        if (amountCollateral == 0) revert DepositTooSmall();
+        if (amountCollateral == 0) revert AmountTooLow();
 
         // Get current reserves
         SirStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
@@ -136,11 +136,11 @@ contract Assistant {
             uint256 feeDen;
             if (vaultParams.leverageTier >= 0) {
                 feeNum = 10000; // baseFee is uint16, leverageTier is int8, so feeNum does not require more than 24 bits
-                feeDen = 10000 + (uint256(systemParams.baseFee) << uint8(vaultParams.leverageTier));
+                feeDen = 10000 + (uint256(systemParams.baseFee.fee) << uint8(vaultParams.leverageTier));
             } else {
                 uint256 temp = 10000 << uint8(-vaultParams.leverageTier);
                 feeNum = temp;
-                feeDen = temp + uint256(systemParams.baseFee);
+                feeDen = temp + uint256(systemParams.baseFee.fee);
             }
 
             // Get collateralIn
@@ -157,7 +157,7 @@ contract Assistant {
         } else {
             // Compute how much collateral actually gets deposited
             uint256 feeNum = 10000;
-            uint256 feeDen = 10000 + uint256(systemParams.lpFee);
+            uint256 feeDen = 10000 + uint256(systemParams.lpFee.fee);
 
             // Get supply of TEA
             uint256 supplyTEA = VAULT.totalSupply(vaultState.vaultId);
@@ -183,7 +183,7 @@ contract Assistant {
             );
         }
 
-        if (amountTokens == 0) revert DepositTooSmall();
+        if (amountTokens == 0) revert AmountTooLow();
     }
 
     /** @dev Static function so we do not need to save on SLOADs
@@ -198,7 +198,7 @@ contract Assistant {
         // Get vault state
         SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
         if (vaultState.vaultId == 0) revert VaultDoesNotExist();
-        if (amountTokens == 0) revert DepositTooSmall();
+        if (amountTokens == 0) revert AmountTooLow();
 
         // Get current reserves
         SirStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
@@ -217,11 +217,11 @@ contract Assistant {
             uint256 feeDen;
             if (vaultParams.leverageTier >= 0) {
                 feeNum = 10000;
-                feeDen = 10000 + (uint256(systemParams.baseFee) << uint8(vaultParams.leverageTier));
+                feeDen = 10000 + (uint256(systemParams.baseFee.fee) << uint8(vaultParams.leverageTier));
             } else {
                 uint256 temp = 10000 << uint8(-vaultParams.leverageTier);
                 feeNum = temp;
-                feeDen = temp + uint256(systemParams.baseFee);
+                feeDen = temp + uint256(systemParams.baseFee.fee);
             }
 
             // Get collateral withdrawn
