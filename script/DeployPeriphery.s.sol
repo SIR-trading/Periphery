@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.0;
 
 import "forge-std/Script.sol";
 
@@ -11,6 +11,7 @@ contract DeployPeriphery is Script {
     uint256 deployerPrivateKey;
 
     address public vault;
+    address public oracle;
 
     function setUp() public {
         if (block.chainid == 1) {
@@ -22,6 +23,7 @@ contract DeployPeriphery is Script {
         }
 
         vault = vm.envAddress("VAULT");
+        oracle = vm.envAddress("ORACLE");
     }
 
     /** @dev cli for local testnet:  forge script script/DeployPeriphery.s.sol --rpc-url tarp_testnet --broadcast --legacy
@@ -34,6 +36,7 @@ contract DeployPeriphery is Script {
         address assistant = address(
             new Assistant(
                 vault,
+                oracle,
                 block.chainid == 1 ? Addresses.ADDR_UNISWAPV3_FACTORY : AddressesSepolia.ADDR_UNISWAPV3_FACTORY
             )
         );

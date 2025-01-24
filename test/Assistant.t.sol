@@ -15,8 +15,11 @@ import {IWETH9} from "core/interfaces/IWETH9.sol";
 import {Assistant} from "src/Assistant.sol";
 import {AddressClone} from "core/libraries/AddressClone.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
+import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
 contract AssistantTest is Test {
+    using SafeERC20 for IERC20;
+
     struct State {
         uint256 totalReserve;
         uint256 collectedFees;
@@ -52,7 +55,7 @@ contract AssistantTest is Test {
     function setUp() public {
         // vm.writeFile("./mint.log", "");
 
-        vm.createSelectFork("mainnet", 18128102);
+        vm.createSelectFork("mainnet", 19662664);
 
         // Deploy oracle
         address oracle = address(new Oracle(Addresses.ADDR_UNISWAPV3_FACTORY));
@@ -76,10 +79,12 @@ contract AssistantTest is Test {
         SystemControl(systemControl).initialize(address(vault), sir);
 
         // Deploy Assistant
-        assistant = new Assistant(address(vault), Addresses.ADDR_UNISWAPV3_FACTORY);
+        assistant = new Assistant(address(vault), oracle, Addresses.ADDR_UNISWAPV3_FACTORY);
 
         // Approve Assistant to spend WETH
         WETH.approve(address(vault), type(uint256).max);
+
+        vm.writeFile("./test.log", "");
     }
 
     enum VaultStatus {
@@ -339,6 +344,68 @@ contract AssistantTest is Test {
                 vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited, 0)
             returns (uint256 amountTokens_) {
                 // Mint does not revert like quoteMint
+                assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
+            } catch {
+                // Mint reverts contrary to quoteMint
+            }
+        }
+    }
+
+    function testFuzz_mintWithDebtToken(
+        bool isAPE,
+        int8 leverageTier,
+        uint144 usdtMinted,
+        uint144 usdtDeposited,
+        address user,
+        State memory state
+    ) public {
+        // Initialize vault
+        _initializeVault(leverageTier);
+
+        // Initialize vault state
+        _initializeState(vaultParams.leverageTier, state);
+
+        // Bound USDT amounts
+        usdtMinted = uint144(_bound(usdtMinted, 0, USDT_SUPPLY / 10000)); // Swapping too large amounts will cost a lot of gas in Uniswap v3 because of all the ticks crossed
+        usdtDeposited = uint144(_bound(usdtDeposited, 0, usdtMinted)); // Minimum amount that must be deposited is
+
+        // Approve assistant to spend USDT
+        vm.prank(user);
+        USDT.forceApprove(address(vault), usdtDeposited);
+
+        // Mint TEA or APE and test it against quoteMint
+        bool mintMustRevert;
+        uint256 amountTokens;
+        // vm.writeLine("./test.log", string.concat("quoteMint with ", vm.toString(usdtDeposited)));
+        try
+            // Quote mint
+            assistant.quoteMintWithDebtToken(isAPE, vaultParams, usdtDeposited)
+        returns (uint256 amountTokens_) {
+            amountTokens = amountTokens_;
+            mintMustRevert = false;
+            // vm.writeLine("./test.log", string.concat("quoteMint returned ", vm.toString(amountTokens)));
+        } catch {
+            mintMustRevert = true;
+            // vm.writeLine("./test.log", "quoteMint reverted");
+        }
+        // vm.writeLine("./test.log", "--------------------------------");
+
+        // Deal USDT
+        vm.assume(user != address(0));
+        deal(address(USDT), user, usdtDeposited);
+
+        vm.prank(user);
+        if (mintMustRevert) {
+            // Mint must revert
+            vm.expectRevert();
+            vault.mint(isAPE, vaultParams, usdtDeposited, 1);
+        } else {
+            try
+                // Mint could revert
+                vault.mint(isAPE, vaultParams, usdtDeposited, 1)
+            returns (uint256 amountTokens_) {
+                // Mint does not revert like quoteMint
+                console.log("mint returned", amountTokens_);
                 assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
             } catch {
                 // Mint reverts contrary to quoteMint

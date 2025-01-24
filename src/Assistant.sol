@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// Interfaces
+import {IQuoter} from "./IQuoter.sol";
 import {IVault} from "core/interfaces/IVault.sol";
+import {IOracle} from "core/interfaces/IOracle.sol";
+
+// Contracts and libraries
 import {SirStructs} from "core/libraries/SirStructs.sol";
 import {SystemConstants} from "core/libraries/SystemConstants.sol";
 import {FullMath} from "core/libraries/FullMath.sol";
@@ -14,10 +19,14 @@ import "forge-std/console.sol";
 /** @notice Helper functions for SIR protocol
  */
 contract Assistant {
+    IVault public immutable VAULT;
+    IOracle private immutable SIR_ORACLE;
     address private immutable UNISWAPV3_FACTORY;
+    IQuoter private immutable UNISWAPV3_QUOTER;
 
     error VaultDoesNotExist();
     error AmountTooLow();
+    error TooMuchCollateral();
     error TEAMaxSupplyExceeded();
 
     enum VaultStatus {
@@ -27,11 +36,14 @@ contract Assistant {
         VaultAlreadyExists
     }
 
-    IVault public immutable VAULT;
-
-    constructor(address vault_, address uniswapV3Factory) {
-        VAULT = IVault(vault_);
+    constructor(address vault, address oracle, address uniswapV3Factory) {
+        VAULT = IVault(vault);
+        SIR_ORACLE = IOracle(oracle);
         UNISWAPV3_FACTORY = uniswapV3Factory;
+
+        if (block.chainid == 1) UNISWAPV3_QUOTER = IQuoter(0x5e55C9e631FAE526cd4B0526C4818D6e0a9eF0e3);
+        else if (block.chainid == 11155111) UNISWAPV3_QUOTER = IQuoter(0xe3c07ebF66b9D070b589bCCa30903891F71A92Be);
+        else revert("Network not supported");
     }
 
     function getReserves(uint48[] calldata vaultIds) external view returns (SirStructs.Reserves[] memory reserves) {
@@ -112,7 +124,8 @@ contract Assistant {
                             SIMULATION FUNCTIONS
     ////////////////////////////////////////////////////////////////*/
 
-    /** @dev Static function so we do not need to save on SLOADs
+    /** @notice It returns the amount of TEA/APE tokens that would be obtained by depositing collateral token
+        @dev Static function so we do not need to save on SLOADs
         @dev If quoteMint reverts, mint will revert as well; vice versa is not necessarily true.
         @return amountTokens that would be obtained by depositing amountCollateral
      */
@@ -120,7 +133,7 @@ contract Assistant {
         bool isAPE,
         SirStructs.VaultParameters calldata vaultParams,
         uint144 amountCollateral
-    ) external view returns (uint256 amountTokens) {
+    ) public view returns (uint256 amountTokens) {
         // Get vault state
         SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
         if (vaultState.vaultId == 0) revert VaultDoesNotExist();
@@ -184,6 +197,39 @@ contract Assistant {
         }
 
         if (amountTokens == 0) revert AmountTooLow();
+    }
+
+    /** @notice It returns the amount of TEA/APE tokens that would be obtained by depositing debt token
+        @dev Static function
+        @dev If quoteMint reverts, mint will revert as well; vice versa is not necessarily true.
+        @return amountTokens that would be obtained
+     */
+    function quoteMintWithDebtToken(
+        bool isAPE,
+        SirStructs.VaultParameters calldata vaultParams,
+        uint256 amountDebtToken
+    ) external view returns (uint256 amountTokens) {
+        if (amountDebtToken == 0) revert AmountTooLow();
+
+        // Get fee tier
+        uint24 feeTier = SIR_ORACLE.uniswapFeeTierOf(vaultParams.debtToken, vaultParams.collateralToken);
+
+        // Quote Uniswap v3
+        (uint256 amountCollateral, , , ) = UNISWAPV3_QUOTER.quoteExactInputSingle(
+            IQuoter.QuoteExactInputSingleParams({
+                tokenIn: vaultParams.debtToken,
+                tokenOut: vaultParams.collateralToken,
+                amountIn: amountDebtToken,
+                fee: feeTier,
+                sqrtPriceLimitX96: 0
+            })
+        );
+
+        // Check that amountCollateral does not overflow
+        if (amountCollateral > type(uint144).max) revert TooMuchCollateral();
+
+        // Given that we know how much collateral we will get from Uniswap, we can now use the quoteMint function
+        return quoteMint(isAPE, vaultParams, uint144(amountCollateral));
     }
 
     /** @dev Static function so we do not need to save on SLOADs
