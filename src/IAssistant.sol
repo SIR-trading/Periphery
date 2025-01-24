@@ -17,16 +17,10 @@ interface IAssistant {
 
     function getReserves(uint48[] calldata vaultIds) external view returns (SirStructs.Reserves[] memory reserves);
 
-    /** @notice It returns the ideal price of TEA if there were no fees for withdrawing.
-        @notice To get the price as [units of Collateral][per unit of TEA], divide num by den.
-     */
     function priceOfTEA(
         SirStructs.VaultParameters calldata vaultParams
     ) external view returns (uint256 num, uint256 den);
 
-    /** @notice It returns the ideal price of APE if there were no fees for withdrawing.
-        @notice To get the price as [units of Collateral][per unit of APE], divide num by den.
-     */
     function priceOfAPE(
         SirStructs.VaultParameters calldata vaultParams
     ) external view returns (uint256 num, uint256 den);
@@ -34,4 +28,22 @@ interface IAssistant {
     function getVaultStatus(SirStructs.VaultParameters calldata vaultParams) external view returns (VaultStatus);
 
     function getAddressAPE(uint48 vaultId) external view returns (address);
+
+    function quoteMint(
+        bool isAPE,
+        SirStructs.VaultParameters calldata vaultParams,
+        uint144 amountCollateral
+    ) public view returns (uint256 amountTokens);
+
+    function quoteMintWithDebtToken(
+        bool isAPE,
+        SirStructs.VaultParameters calldata vaultParams,
+        uint256 amountDebtToken
+    ) external view returns (uint256 amountTokens);
+
+    function quoteBurn(
+        bool isAPE,
+        SirStructs.VaultParameters calldata vaultParams,
+        uint256 amountTokens
+    ) external view returns (uint144 amountCollateral);
 }

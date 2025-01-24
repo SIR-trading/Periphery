@@ -240,6 +240,64 @@ contract AssistantTest is Test {
         }
     }
 
+    function testFuzz_mintWithDebtTokenFirstTime(
+        bool isAPE,
+        int8 leverageTier,
+        uint144 usdtMinted,
+        uint144 usdtDeposited,
+        address user
+    ) public {
+        // Initialize vault
+        _initializeVault(leverageTier);
+
+        // Bound USDT amounts
+        usdtMinted = uint144(_bound(usdtMinted, 0, USDT_SUPPLY / 10000)); // Swapping too large amounts will cost a lot of gas in Uniswap v3 because of all the ticks crossed
+        usdtDeposited = uint144(_bound(usdtDeposited, 0, usdtMinted)); // Minimum amount that must be deposited is
+
+        // Approve assistant to spend USDT
+        vm.prank(user);
+        USDT.forceApprove(address(vault), usdtDeposited);
+
+        // Mint TEA or APE and test it against quoteMint
+        bool mintMustRevert;
+        uint256 amountTokens;
+        // vm.writeLine("./test.log", string.concat("quoteMint with ", vm.toString(usdtDeposited)));
+        try
+            // Quote mint
+            assistant.quoteMintWithDebtToken(isAPE, vaultParams, usdtDeposited)
+        returns (uint256 amountTokens_) {
+            amountTokens = amountTokens_;
+            mintMustRevert = false;
+            // vm.writeLine("./test.log", string.concat("quoteMint returned ", vm.toString(amountTokens)));
+        } catch {
+            mintMustRevert = true;
+            // vm.writeLine("./test.log", "quoteMint reverted");
+        }
+        // vm.writeLine("./test.log", "--------------------------------");
+
+        // Deal USDT
+        vm.assume(user != address(0));
+        deal(address(USDT), user, usdtDeposited);
+
+        vm.prank(user);
+        if (mintMustRevert) {
+            // Mint must revert
+            vm.expectRevert();
+            vault.mint(isAPE, vaultParams, usdtDeposited, 1);
+        } else {
+            try
+                // Mint could revert
+                vault.mint(isAPE, vaultParams, usdtDeposited, 1)
+            returns (uint256 amountTokens_) {
+                // Mint does not revert like quoteMint
+                console.log("mint returned", amountTokens_);
+                assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
+            } catch {
+                // Mint reverts contrary to quoteMint
+            }
+        }
+    }
+
     function testFuzz_mint(
         bool isAPE,
         int8 leverageTier,
