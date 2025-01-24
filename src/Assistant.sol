@@ -30,8 +30,8 @@ contract Assistant {
     IVault public immutable VAULT;
 
     constructor(address vault_, address uniswapV3Factory) {
-        UNISWAPV3_FACTORY = uniswapV3Factory;
         VAULT = IVault(vault_);
+        UNISWAPV3_FACTORY = uniswapV3Factory;
     }
 
     function getReserves(uint48[] calldata vaultIds) external view returns (SirStructs.Reserves[] memory reserves) {
