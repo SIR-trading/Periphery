@@ -33,13 +33,13 @@ interface IAssistant {
         bool isAPE,
         SirStructs.VaultParameters calldata vaultParams,
         uint144 amountCollateral
-    ) public view returns (uint256 amountTokens);
+    ) external view returns (uint256 amountTokens);
 
     function quoteMintWithDebtToken(
         bool isAPE,
         SirStructs.VaultParameters calldata vaultParams,
         uint256 amountDebtToken
-    ) external view returns (uint256 amountTokens);
+    ) external view returns (uint256 amountTokens, uint256 amountCollateral);
 
     function quoteBurn(
         bool isAPE,

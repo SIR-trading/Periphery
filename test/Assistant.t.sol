@@ -245,7 +245,8 @@ contract AssistantTest is Test {
         int8 leverageTier,
         uint144 usdtMinted,
         uint144 usdtDeposited,
-        address user
+        address user,
+        uint144 amountCollateralMin
     ) public {
         // Initialize vault
         _initializeVault(leverageTier);
@@ -261,12 +262,15 @@ contract AssistantTest is Test {
         // Mint TEA or APE and test it against quoteMint
         bool mintMustRevert;
         uint256 amountTokens;
+        uint256 amountCollateral;
         // vm.writeLine("./test.log", string.concat("quoteMint with ", vm.toString(usdtDeposited)));
         try
             // Quote mint
             assistant.quoteMintWithDebtToken(isAPE, vaultParams, usdtDeposited)
-        returns (uint256 amountTokens_) {
+        returns (uint256 amountTokens_, uint256 amountCollateral_) {
             amountTokens = amountTokens_;
+            amountCollateral = amountCollateral_;
+            amountCollateralMin = uint144(_bound(amountCollateralMin, 1, amountCollateral));
             mintMustRevert = false;
             // vm.writeLine("./test.log", string.concat("quoteMint returned ", vm.toString(amountTokens)));
         } catch {
@@ -283,11 +287,11 @@ contract AssistantTest is Test {
         if (mintMustRevert) {
             // Mint must revert
             vm.expectRevert();
-            vault.mint(isAPE, vaultParams, usdtDeposited, 1);
+            vault.mint(isAPE, vaultParams, usdtDeposited, amountCollateralMin);
         } else {
             try
                 // Mint could revert
-                vault.mint(isAPE, vaultParams, usdtDeposited, 1)
+                vault.mint(isAPE, vaultParams, usdtDeposited, amountCollateralMin)
             returns (uint256 amountTokens_) {
                 // Mint does not revert like quoteMint
                 console.log("mint returned", amountTokens_);
@@ -415,6 +419,7 @@ contract AssistantTest is Test {
         uint144 usdtMinted,
         uint144 usdtDeposited,
         address user,
+        uint144 amountCollateralMin,
         State memory state
     ) public {
         // Initialize vault
@@ -434,12 +439,15 @@ contract AssistantTest is Test {
         // Mint TEA or APE and test it against quoteMint
         bool mintMustRevert;
         uint256 amountTokens;
+        uint256 amountCollateral;
         // vm.writeLine("./test.log", string.concat("quoteMint with ", vm.toString(usdtDeposited)));
         try
             // Quote mint
             assistant.quoteMintWithDebtToken(isAPE, vaultParams, usdtDeposited)
-        returns (uint256 amountTokens_) {
+        returns (uint256 amountTokens_, uint256 amountCollateral_) {
             amountTokens = amountTokens_;
+            amountCollateral = amountCollateral_;
+            amountCollateralMin = uint144(_bound(amountCollateralMin, 1, amountCollateral));
             mintMustRevert = false;
             // vm.writeLine("./test.log", string.concat("quoteMint returned ", vm.toString(amountTokens)));
         } catch {
@@ -456,11 +464,11 @@ contract AssistantTest is Test {
         if (mintMustRevert) {
             // Mint must revert
             vm.expectRevert();
-            vault.mint(isAPE, vaultParams, usdtDeposited, 1);
+            vault.mint(isAPE, vaultParams, usdtDeposited, amountCollateralMin);
         } else {
             try
                 // Mint could revert
-                vault.mint(isAPE, vaultParams, usdtDeposited, 1)
+                vault.mint(isAPE, vaultParams, usdtDeposited, amountCollateralMin)
             returns (uint256 amountTokens_) {
                 // Mint does not revert like quoteMint
                 console.log("mint returned", amountTokens_);

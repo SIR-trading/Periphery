@@ -208,14 +208,14 @@ contract Assistant {
         bool isAPE,
         SirStructs.VaultParameters calldata vaultParams,
         uint256 amountDebtToken
-    ) external view returns (uint256 amountTokens) {
+    ) external view returns (uint256 amountTokens, uint256 amountCollateral) {
         if (amountDebtToken == 0) revert AmountTooLow();
 
         // Get fee tier
         uint24 feeTier = SIR_ORACLE.uniswapFeeTierOf(vaultParams.debtToken, vaultParams.collateralToken);
 
         // Quote Uniswap v3
-        (uint256 amountCollateral, , , ) = UNISWAPV3_QUOTER.quoteExactInputSingle(
+        (amountCollateral, , , ) = UNISWAPV3_QUOTER.quoteExactInputSingle(
             IQuoter.QuoteExactInputSingleParams({
                 tokenIn: vaultParams.debtToken,
                 tokenOut: vaultParams.collateralToken,
@@ -229,7 +229,7 @@ contract Assistant {
         if (amountCollateral > type(uint144).max) revert TooMuchCollateral();
 
         // Given that we know how much collateral we will get from Uniswap, we can now use the quoteMint function
-        return quoteMint(isAPE, vaultParams, uint144(amountCollateral));
+        amountTokens = quoteMint(isAPE, vaultParams, uint144(amountCollateral));
     }
 
     /** @dev Static function so we do not need to save on SLOADs
