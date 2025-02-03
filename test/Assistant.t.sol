@@ -529,6 +529,21 @@ contract AssistantTest is Test {
         }
     }
 
+    function test_quoteCollateralToDebtToken() public {
+        // Initialize vault
+        _initializeVault(vaultParams.leverageTier);
+
+        // Quote 1 ether of collateral
+        uint256 amountDebtToken = assistant.quoteCollateralToDebtToken(
+            vaultParams.debtToken,
+            vaultParams.collateralToken,
+            1 ether
+        );
+
+        // Price of 1 ether at April 15, 2024 was 3,080 USDT approximately
+        assertApproxEqAbs(amountDebtToken, 3_080e6, 1e6); // 1 USDT as margin of error
+    }
+
     ////////////////////////////////////////////////////////////////////////
     /////////////// P R I V A T E ////// F U N C T I O N S ////////////////
     //////////////////////////////////////////////////////////////////////

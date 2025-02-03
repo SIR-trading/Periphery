@@ -41,6 +41,12 @@ interface IAssistant {
         uint256 amountDebtToken
     ) external view returns (uint256 amountTokens, uint256 amountCollateral);
 
+    function quoteCollateralToDebtToken(
+        address debtToken,
+        address collateralToken,
+        uint256 amountCollateral
+    ) external view returns (uint256 amountDebtToken);
+
     function quoteBurn(
         bool isAPE,
         SirStructs.VaultParameters calldata vaultParams,

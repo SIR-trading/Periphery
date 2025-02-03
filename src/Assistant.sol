@@ -5,6 +5,7 @@ pragma solidity ^0.8.0;
 import {IQuoter} from "./IQuoter.sol";
 import {IVault} from "core/interfaces/IVault.sol";
 import {IOracle} from "core/interfaces/IOracle.sol";
+import {IUniswapV3Pool} from "v3-core/interfaces/IUniswapV3Pool.sol";
 
 // Contracts and libraries
 import {SirStructs} from "core/libraries/SirStructs.sol";
@@ -230,6 +231,34 @@ contract Assistant {
 
         // Given that we know how much collateral we will get from Uniswap, we can now use the quoteMint function
         amountTokens = quoteMint(isAPE, vaultParams, uint144(amountCollateral));
+    }
+
+    function quoteCollateralToDebtToken(
+        address debtToken,
+        address collateralToken,
+        uint256 amountCollateral
+    ) external view returns (uint256 amountDebtToken) {
+        // Get Uniswap pool
+        address uniswapPool = SIR_ORACLE.uniswapFeeTierAddressOf(debtToken, collateralToken);
+
+        // Get current price
+        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(uniswapPool).slot0();
+
+        // Calculate price fraction with better precision if it doesn't overflow when multiplied by itself
+        bool inverse = collateralToken == IUniswapV3Pool(uniswapPool).token1();
+        if (sqrtPriceX96 <= type(uint128).max) {
+            uint256 priceX192 = uint256(sqrtPriceX96) * sqrtPriceX96;
+            return
+                !inverse
+                    ? FullMath.mulDiv(priceX192, amountCollateral, 1 << 192)
+                    : FullMath.mulDiv(1 << 192, amountCollateral, priceX192);
+        } else {
+            uint256 priceX128 = FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, 1 << 64);
+            return
+                !inverse
+                    ? FullMath.mulDiv(priceX128, amountCollateral, 1 << 128)
+                    : FullMath.mulDiv(1 << 128, amountCollateral, priceX128);
+        }
     }
 
     /** @dev Static function so we do not need to save on SLOADs
