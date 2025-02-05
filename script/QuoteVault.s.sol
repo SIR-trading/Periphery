@@ -4,6 +4,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Script.sol";
 
 import {IVault} from "core/interfaces/IVault.sol";
+import {IOracle} from "core/interfaces/IOracle.sol";
 import {Assistant} from "src/Assistant.sol";
 import {SirStructs} from "core/libraries/SirStructs.sol";
 
@@ -11,6 +12,7 @@ contract QuoteVault is Script {
     uint256 deployerPrivateKey;
 
     IVault public vault;
+    IOracle public oracle;
     Assistant public assistant;
 
     function setUp() public {
@@ -23,6 +25,7 @@ contract QuoteVault is Script {
         }
 
         vault = IVault(vm.envAddress("VAULT"));
+        oracle = IOracle(vm.envAddress("ORACLE"));
         assistant = Assistant(vm.envAddress("ASSISTANT"));
     }
 
@@ -34,9 +37,20 @@ contract QuoteVault is Script {
 
         SirStructs.VaultParameters memory vaultParams = vault.paramsById(1);
 
+        SirStructs.OracleState memory state = oracle.state(vaultParams.collateralToken, vaultParams.debtToken);
+        console.log("Uniswap fee tier: ", state.uniswapFeeTier.fee);
+
+        uint24 feeTier = oracle.uniswapFeeTierOf(vaultParams.collateralToken, vaultParams.debtToken);
+        console.log("Uniswap fee tier: ", feeTier);
+
         // Quote vault id 1
-        uint256 amountTokens = assistant.quoteMint(true, vaultParams, 1e18);
+        (uint256 amountTokens, uint256 amountCollateral) = assistant.quoteMintWithDebtToken(
+            false,
+            vaultParams,
+            995896400000000000000
+        );
         console.log("Minting expects: ", amountTokens);
+        console.log("Uniswap swap returns: ", amountCollateral);
 
         vm.stopBroadcast();
     }
