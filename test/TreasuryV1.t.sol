@@ -22,10 +22,15 @@ import {Assistant} from "src/Assistant.sol";
 import "forge-std/Test.sol";
 
 contract TreasuryV1Test is Test {
-    ERC1967Proxy public proxy;
+    address public proxy;
+    address payable sir;
 
     function setUp() public {
         vm.createSelectFork("mainnet", 18128102);
+
+        // Treasury address
+        string memory json = vm.readFile("lib/core/contributors/spice-contributors.json");
+        proxy = stdJson.readAddress(json, "$[0].address");
 
         // ------------------- Treasury -------------------
 
@@ -33,9 +38,10 @@ contract TreasuryV1Test is Test {
         TreasuryV1 treasuryImplementation = new TreasuryV1();
 
         // Deploy treasury proxy and initialize owner
-        proxy = new ERC1967Proxy(
-            address(treasuryImplementation),
-            abi.encodeWithSelector(TreasuryV1.initialize.selector)
+        deployCodeTo(
+            "ERC1967Proxy.sol",
+            abi.encode(address(treasuryImplementation), abi.encodeWithSelector(TreasuryV1.initialize.selector)),
+            proxy
         );
 
         // --------------------- Core ---------------------
@@ -47,7 +53,7 @@ contract TreasuryV1Test is Test {
         address systemControl = address(new SystemControl());
 
         // Deploy SIR
-        address payable sir = payable(address(new SIR(Addresses.ADDR_WETH, systemControl)));
+        sir = payable(address(new SIR(Addresses.ADDR_WETH, systemControl)));
 
         // Deploy APE implementation
         address apeImplementation = address(new APE());
@@ -62,21 +68,21 @@ contract TreasuryV1Test is Test {
         SystemControl(systemControl).initialize(vault, sir);
     }
 
-    function testOwnership() public {
-        TreasuryV1 treasury = TreasuryV1(address(proxy));
-        assertEq(treasury.owner(), address(this), "Owner should be test contract");
+    function test_Ownership() public view {
+        TreasuryV1 treasury = TreasuryV1(proxy);
+        assertEq(treasury.owner(), address(this), "Owner should be test_ contract");
     }
 
     error InvalidInitialization();
 
-    function testCannotReinitialize() public {
-        TreasuryV1 treasury = TreasuryV1(address(proxy));
+    function test_CannotReinitialize() public {
+        TreasuryV1 treasury = TreasuryV1(proxy);
         vm.expectRevert(InvalidInitialization.selector);
         treasury.initialize();
     }
 
-    function testRelayCallSuccess() public {
-        TreasuryV1 treasury = TreasuryV1(address(proxy));
+    function test_RelayCallSuccess() public {
+        TreasuryV1 treasury = TreasuryV1(proxy);
         MockContract mock = new MockContract();
 
         bytes memory data = abi.encodeWithSelector(mock.doSomething.selector);
@@ -86,8 +92,8 @@ contract TreasuryV1Test is Test {
         assertEq(decoded, 42, "Should return correct value");
     }
 
-    function testRelayCallRevertWithMessage() public {
-        TreasuryV1 treasury = TreasuryV1(address(proxy));
+    function test_RelayCallRevertWithMessage() public {
+        TreasuryV1 treasury = TreasuryV1(proxy);
         MockContract mock = new MockContract();
 
         bytes memory data = abi.encodeWithSelector(mock.doRevert.selector);
@@ -95,8 +101,8 @@ contract TreasuryV1Test is Test {
         treasury.relayCall(address(mock), data);
     }
 
-    function testRelayCallRevertWithoutMessage() public {
-        TreasuryV1 treasury = TreasuryV1(address(proxy));
+    function test_RelayCallRevertWithoutMessage() public {
+        TreasuryV1 treasury = TreasuryV1(proxy);
         MockContract mock = new MockContract();
 
         bytes memory data = abi.encodeWithSelector(mock.doRevertWithoutMessage.selector);
@@ -106,13 +112,22 @@ contract TreasuryV1Test is Test {
 
     error OwnableUnauthorizedAccount(address account);
 
-    function testNonOwnerCannotRelayCall() public {
-        TreasuryV1 treasury = TreasuryV1(address(proxy));
+    function test_NonOwnerCannotRelayCall() public {
+        TreasuryV1 treasury = TreasuryV1(proxy);
         address attacker = address(0xbad);
 
         vm.prank(attacker);
         vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, attacker));
         treasury.relayCall(address(0), "");
+    }
+
+    function test_MintSIR() public {
+        TreasuryV1 treasury = TreasuryV1(proxy);
+        skip(1000 days);
+
+        assertEq(IERC20(sir).balanceOf(proxy), 0);
+        treasury.relayCall(sir, abi.encodeWithSelector(SIR.contributorMint.selector));
+        assertTrue(IERC20(sir).balanceOf(proxy) > 0);
     }
 }
 
