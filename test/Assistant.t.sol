@@ -1,21 +1,26 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "forge-std/Test.sol";
+// Interfaces
+import {IWETH9} from "core/interfaces/IWETH9.sol";
+import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
+// Libraries
 import {Addresses} from "core/libraries/Addresses.sol";
+import {SystemConstants} from "core/libraries/SystemConstants.sol";
+import {SirStructs} from "core/libraries/SirStructs.sol";
+import {AddressClone} from "core/libraries/AddressClone.sol";
+
+// Contracts
 import {Oracle} from "core/Oracle.sol";
 import {SystemControl} from "core/SystemControl.sol";
 import {SIR} from "core/SIR.sol";
 import {APE} from "core/APE.sol";
 import {Vault} from "core/Vault.sol";
-import {SystemConstants} from "core/libraries/SystemConstants.sol";
-import {SirStructs} from "core/libraries/SirStructs.sol";
-import {IWETH9} from "core/interfaces/IWETH9.sol";
 import {Assistant} from "src/Assistant.sol";
-import {AddressClone} from "core/libraries/AddressClone.sol";
-import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
+
+import "forge-std/Test.sol";
 
 contract AssistantTest is Test {
     using SafeERC20 for IERC20;

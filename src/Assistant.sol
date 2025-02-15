@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 // Interfaces
-import {IQuoter} from "./IQuoter.sol";
+import {IQuoter} from "./interfaces/IQuoter.sol";
 import {IVault} from "core/interfaces/IVault.sol";
 import {IOracle} from "core/interfaces/IOracle.sol";
 import {IUniswapV3Pool} from "v3-core/interfaces/IUniswapV3Pool.sol";
