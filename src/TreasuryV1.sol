@@ -13,9 +13,8 @@ import {Ownable2StepUpgradeable} from "oz-upgradeable/access/Ownable2StepUpgrade
     @notice To be upgraded later with a fully functioning DAO.
  */
 contract TreasuryV1 is Ownable2StepUpgradeable, UUPSUpgradeable {
-    /** @dev The Ownable is intitialized with an arbitrary address since
-        @dev since its state is irrelevant. 
-     */
+    uint256[50] __gap;
+
     constructor() {
         _disableInitializers();
     }
