@@ -34,6 +34,8 @@ contract AssistantTest is Test {
         uint256 apeTotalSupply;
     }
 
+    receive() external payable {}
+
     bytes32 private constant _HASH_CREATION_CODE_APE = keccak256(type(APE).creationCode);
 
     uint256 constant SLOT_TEA_SUPPLY = 4;
@@ -325,6 +327,10 @@ contract AssistantTest is Test {
         wethMinted = uint144(_bound(wethMinted, 0, ETH_SUPPLY));
         wethDeposited = uint144(_bound(wethDeposited, 0, wethMinted)); // Minimum amount that must be deposited is
 
+        // Deal WETH
+        vm.assume(user != address(0));
+        _dealWETH(user, wethMinted);
+
         // Approve assistant to spend WETH
         vm.prank(user);
         WETH.approve(address(vault), wethDeposited);
@@ -341,10 +347,6 @@ contract AssistantTest is Test {
         } catch {
             mintMustRevert = true;
         }
-
-        // Deal WETH
-        vm.assume(user != address(0));
-        _dealWETH(user, wethMinted);
 
         vm.prank(user);
         if (mintMustRevert) {
@@ -379,13 +381,22 @@ contract AssistantTest is Test {
         // Initialize vault state
         _initializeState(vaultParams.leverageTier, state);
 
-        // Bound WETH amounts
+        // Bound ETH amounts
         ethMinted = uint144(_bound(ethMinted, 0, ETH_SUPPLY));
         ethDeposited = uint144(_bound(ethDeposited, 0, ethMinted)); // Minimum amount that must be deposited is
+
+        // Deal ETH
+        vm.assume(user != address(0));
+        deal(user, ethMinted);
 
         // Mint TEA or APE and test it against quoteMint
         bool mintMustRevert;
         uint256 amountTokens;
+
+        // Simulate WETH supply increase due to wrapping the received ETH
+        deal(address(this), ethDeposited);
+        WETH.deposit{value: ethDeposited}();
+
         try
             // Quote mint
             assistant.quoteMint(isAPE, vaultParams, ethDeposited)
@@ -396,11 +407,10 @@ contract AssistantTest is Test {
             mintMustRevert = true;
         }
 
-        // Deal WETH
-        vm.assume(user != address(0));
-        deal(user, ethMinted);
-
+        // Remove extra WETH
+        WETH.withdraw(ethDeposited);
         vm.prank(user);
+
         if (mintMustRevert) {
             // Mint must revert
             vm.expectRevert();
