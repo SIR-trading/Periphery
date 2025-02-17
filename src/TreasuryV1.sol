@@ -5,24 +5,23 @@ pragma solidity ^0.8.0;
 import {ISIR} from "core/interfaces/ISIR.sol";
 
 // Libraries
-import {UUPSUpgradeable} from "openzeppelin/proxy/utils/UUPSUpgradeable.sol";
-import {Initializable} from "openzeppelin/proxy/utils/Initializable.sol";
-import {Ownable2Step, Ownable} from "openzeppelin/access/Ownable2Step.sol";
+import {UUPSUpgradeable} from "oz-upgradeable/proxy/utils/UUPSUpgradeable.sol";
+import {Ownable2StepUpgradeable} from "oz-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /** @notice Simplest implementation of the Treasury contract.
     @notice Only the owner can mint and/or stake SIR tokens.
     @notice To be upgraded later with a fully functioning DAO.
  */
-contract TreasuryV1 is Ownable2Step, Initializable, UUPSUpgradeable {
+contract TreasuryV1 is Ownable2StepUpgradeable, UUPSUpgradeable {
     /** @dev The Ownable is intitialized with an arbitrary address since
         @dev since its state is irrelevant. 
      */
-    constructor() Ownable(address(1)) {
+    constructor() {
         _disableInitializers();
     }
 
     function initialize() external initializer {
-        _transferOwnership(msg.sender);
+        __Ownable_init(msg.sender);
     }
 
     /** @notice This function allows us to call other contracts in behalf of the Treasury.

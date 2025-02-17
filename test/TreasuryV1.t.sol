@@ -6,8 +6,6 @@ import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
 // Libraries
 import {Addresses} from "core/libraries/Addresses.sol";
-// import {SystemConstants} from "core/libraries/SystemConstants.sol";
-// import {SirStructs} from "core/libraries/SirStructs.sol";
 
 // Contracts
 import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
@@ -17,7 +15,6 @@ import {SystemControl} from "core/SystemControl.sol";
 import {SIR} from "core/SIR.sol";
 import {APE} from "core/APE.sol";
 import {Vault} from "core/Vault.sol";
-import {Assistant} from "src/Assistant.sol";
 
 import "forge-std/Test.sol";
 
@@ -129,6 +126,41 @@ contract TreasuryV1Test is Test {
         treasury.relayCall(sir, abi.encodeWithSelector(SIR.contributorMint.selector));
         assertTrue(IERC20(sir).balanceOf(proxy) > 0);
     }
+
+    // Add these test functions to your TreasuryV1Test contract
+    function test_SuccessfulUpgrade() public {
+        // Deploy new implementation
+        TreasuryV2 v2Implementation = new TreasuryV2();
+
+        // Perform upgrade
+        TreasuryV1(proxy).upgradeToAndCall(address(v2Implementation), "");
+
+        // Verify implementation changed
+        address newImpl = getImplementation(proxy);
+        assertEq(newImpl, address(v2Implementation), "Implementation not upgraded");
+
+        // Test new functionality
+        TreasuryV2 upgraded = TreasuryV2(proxy);
+        assertEq(upgraded.newFeature(), "V2 functionality", "New feature not working");
+
+        // Verify existing state preserved
+        assertEq(upgraded.owner(), address(this), "Ownership not preserved");
+    }
+
+    function test_NonOwnerCannotUpgrade() public {
+        address attacker = address(0xbad);
+        TreasuryV2 v2Implementation = new TreasuryV2();
+
+        vm.prank(attacker);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUnauthorizedAccount.selector, attacker));
+        TreasuryV1(proxy).upgradeToAndCall(address(v2Implementation), "");
+    }
+
+    // Helper function to read implementation address from storage
+    function getImplementation(address proxyAddr) internal view returns (address) {
+        bytes32 slot = 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc;
+        return address(uint160(uint256(vm.load(proxyAddr, slot))));
+    }
 }
 
 contract MockContract {
@@ -142,5 +174,11 @@ contract MockContract {
 
     function doRevertWithoutMessage() external pure {
         revert();
+    }
+}
+
+contract TreasuryV2 is TreasuryV1 {
+    function newFeature() public pure returns (string memory) {
+        return "V2 functionality";
     }
 }
