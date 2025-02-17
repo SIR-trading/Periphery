@@ -17,7 +17,9 @@ contract TreasuryV1 is Ownable2Step, Initializable, UUPSUpgradeable {
     /** @dev The Ownable is intitialized with an arbitrary address since
         @dev since its state is irrelevant. 
      */
-    constructor() Ownable(address(1)) {}
+    constructor() Ownable(address(1)) {
+        _disableInitializers();
+    }
 
     function initialize() external initializer {
         _transferOwnership(msg.sender);
