@@ -144,6 +144,7 @@ contract Assistant {
         SirStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
 
         SirStructs.SystemParameters memory systemParams = VAULT.systemParams();
+        console.log("Minting", isAPE ? "APE" : "TEA");
         if (isAPE) {
             // Compute how much collateral actually gets deposited
             uint256 feeNum;
