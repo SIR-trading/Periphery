@@ -1,15 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-// Interfaces
-import {ISIR} from "core/interfaces/ISIR.sol";
-
 // Libraries
 import {UUPSUpgradeable} from "oz-upgradeable/proxy/utils/UUPSUpgradeable.sol";
 import {Ownable2StepUpgradeable} from "oz-upgradeable/access/Ownable2StepUpgradeable.sol";
 
 /** @notice Simplest implementation of the Treasury contract.
-    @notice Only the owner can mint and/or stake SIR tokens.
+    @notice Only the owner can perform call on behalf of the treasury.
     @notice To be upgraded later with a fully functioning DAO.
  */
 contract TreasuryV1 is Ownable2StepUpgradeable, UUPSUpgradeable {
@@ -23,8 +20,8 @@ contract TreasuryV1 is Ownable2StepUpgradeable, UUPSUpgradeable {
         __Ownable_init(msg.sender);
     }
 
-    /** @notice This function allows us to call other contracts in behalf of the Treasury.
-        @notice For instance we can mint the treasury's SIR allocation, stake SIR, etc.
+    /** @notice This function allows the owner to call other contracts in behalf of the Treasury.
+     *  For instance the owner can mint the treasury's SIR allocation, stake SIR, etc.
      */
     function relayCall(address to, bytes memory data) external onlyOwner returns (bytes memory) {
         (bool success, bytes memory retData) = to.call(data);
