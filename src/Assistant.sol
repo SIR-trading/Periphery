@@ -17,7 +17,8 @@ import {AddressClone} from "core/libraries/AddressClone.sol";
 
 import "forge-std/console.sol";
 
-/** @notice Helper functions for SIR protocol
+/**
+ * @notice Helper functions for SIR protocol
  */
 contract Assistant {
     IVault public immutable VAULT;
@@ -56,8 +57,9 @@ contract Assistant {
         }
     }
 
-    /** @notice It returns the ideal price of TEA.
-        @notice To get the price as [units of Collateral][per unit of TEA], divide num by den.
+    /**
+     * @notice It returns the ideal price of TEA.\n
+     * To get the price as [units of Collateral][per unit of TEA], divide num by den.
      */
     function priceOfTEA(
         SirStructs.VaultParameters calldata vaultParams
@@ -71,8 +73,9 @@ contract Assistant {
         den = VAULT.totalSupply(vaultState.vaultId);
     }
 
-    /** @notice It returns the ideal price of APE if there were no fees for withdrawing.
-        @notice To get the price as [units of Collateral][per unit of APE], divide num by den.
+    /**
+     * @notice It returns the ideal price of APE if there were no fees for withdrawing.\n
+     * To get the price as [units of Collateral][per unit of APE], divide num by den.
      */
     function priceOfAPE(
         SirStructs.VaultParameters calldata vaultParams
@@ -125,10 +128,10 @@ contract Assistant {
                             SIMULATION FUNCTIONS
     ////////////////////////////////////////////////////////////////*/
 
-    /** @notice It returns the amount of TEA/APE tokens that would be obtained by depositing collateral token
-        @dev Static function so we do not need to save on SLOADs
-        @dev If quoteMint reverts, mint will revert as well; vice versa is not necessarily true.
-        @return amountTokens that would be obtained by depositing amountCollateral
+    /**
+     * @notice It returns the amount of TEA/APE tokens that would be obtained by depositing collateral token.
+     * @dev If quoteMint reverts, mint will revert as well; vice versa is not necessarily true.
+     * @return amountTokens that would be obtained by depositing amountCollateral.
      */
     function quoteMint(
         bool isAPE,
@@ -200,10 +203,10 @@ contract Assistant {
         if (amountTokens == 0) revert AmountTooLow();
     }
 
-    /** @notice It returns the amount of TEA/APE tokens that would be obtained by depositing debt token
-        @dev Static function
-        @dev If quoteMint reverts, mint will revert as well; vice versa is not necessarily true.
-        @return amountTokens that would be obtained
+    /**
+     * @notice It returns the amount of TEA/APE tokens that would be obtained by depositing debt token
+     * @dev If quoteMint reverts, mint will revert as well; vice versa is not necessarily true.
+     * @return amountTokens that would be obtained.
      */
     function quoteMintWithDebtToken(
         bool isAPE,
@@ -261,9 +264,9 @@ contract Assistant {
         }
     }
 
-    /** @dev Static function so we do not need to save on SLOADs
-        @dev If quoteBurn reverts, burn in Vault.sol will revert as well; vice versa is not necessarily true.
-        @return amountCollateral that would be obtained by burning amountTokens
+    /**
+     * @notice If quoteBurn reverts, burn in Vault.sol will revert as well; vice versa is not necessarily true.
+     * @return amountCollateral that would be obtained by burning amountTokens.
      */
     function quoteBurn(
         bool isAPE,

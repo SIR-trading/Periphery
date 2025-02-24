@@ -8,7 +8,7 @@ import {TreasuryV1} from "src/TreasuryV1.sol";
 import "forge-std/Script.sol";
 
 /// @dev cli for mainnet:  forge script script/DeployTreasuryV1.s.sol --rpc-url mainnet --chain 1 --broadcast --verify --ledger --hd-paths PATHS --etherscan-api-key YOUR_KEY
-/// @dev cli for Sepolia:  forge script script/DeployTreasuryV1.s.sol --rpc-url sepolia --chain sepolia --broadcast --verify --etherscan-api-key YOUR_KEY
+/// @dev cli for Sepolia:  forge script script/DeployTreasuryV1.s.sol --rpc-url sepolia --chain sepolia --broadcast
 contract DeployTreasuryV1 is Script {
     uint256 privateKey;
 

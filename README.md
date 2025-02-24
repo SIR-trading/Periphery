@@ -1,66 +1,19 @@
-## Foundry
+# SIR Periphery
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+This repository generated with [Foundry](https://book.getfoundry.sh/) contains the auxiliary contract files to the SIR protocol.
 
-Foundry consists of:
+### Contracts
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+The `Assistant` contract serves as a helper for the SIR protocol, providing essential functions that facilitate interactions with various components of the system. Key functionalities include:
 
-## Documentation
+-   **Quoting Token Transactions**: Functions like `quoteMint` allow users to simulate token minting by depositing collateral.
+-   **Vault Status**: Function for querying the status of a vault (e.g. whether the vault exists, can be initialized, etc).
 
-https://book.getfoundry.sh/
+The `TreasuryV1` contract is the initial implementation of the Treasury for the SIR protocol. It is an upgradeable contract that allows the owner to perform administrative actions on behalf of the treasury, like minting SIR.
 
-## Usage
+## Ethereum Mainnet Addresses
 
-### Build
-
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+| Contract Name  | Ethereum Mainnet Address                                                                                              |
+| -------------- | --------------------------------------------------------------------------------------------------------------------- |
+| TreasuryV1.sol | [0x686748764c5C7Aa06FEc784E60D14b650bF79129](https://etherscan.io/address/0x686748764c5C7Aa06FEc784E60D14b650bF79129) |
+| Assistant.sol  | [0x8e141368a00244A17724F76E682518DD9286cCb3](https://etherscan.io/address/0x8e141368a00244A17724F76E682518DD9286cCb3) |

@@ -19,6 +19,9 @@ import {Vault} from "core/Vault.sol";
 import "forge-std/Test.sol";
 
 contract TreasuryV1Test is Test {
+    error InvalidInitialization();
+    error OwnableUnauthorizedAccount(address account);
+
     address public proxy;
     address payable sir;
 
@@ -70,8 +73,6 @@ contract TreasuryV1Test is Test {
         assertEq(treasury.owner(), address(this), "Owner should be test_ contract");
     }
 
-    error InvalidInitialization();
-
     function test_CannotReinitialize() public {
         TreasuryV1 treasury = TreasuryV1(proxy);
         vm.expectRevert(InvalidInitialization.selector);
@@ -106,8 +107,6 @@ contract TreasuryV1Test is Test {
         vm.expectRevert("relayCall failed");
         treasury.relayCall(address(mock), data);
     }
-
-    error OwnableUnauthorizedAccount(address account);
 
     function test_NonOwnerCannotRelayCall() public {
         TreasuryV1 treasury = TreasuryV1(proxy);

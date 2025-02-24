@@ -7,18 +7,20 @@ import {Assistant} from "src/Assistant.sol";
 import {Addresses} from "core/libraries/Addresses.sol";
 import {AddressesSepolia} from "core/libraries/AddressesSepolia.sol";
 
-contract DeployPeriphery is Script {
+/**
+ * @dev cli for local testnet:  forge script script/DeployAssistant.s.sol --rpc-url mainnet --chain 1 --broadcast --verify --ledger --hd-paths PATHS --etherscan-api-key YOUR_KEY
+ * @dev cli for Sepolia:        forge script script/DeployAssistant.s.sol --rpc-url sepolia --chain sepolia --broadcast
+ */
+contract DeployAssistant is Script {
     uint256 deployerPrivateKey;
 
     address public vault;
     address public oracle;
 
     function setUp() public {
-        if (block.chainid == 1) {
-            deployerPrivateKey = vm.envUint("TARP_TESTNET_PRIVATE_KEY");
-        } else if (block.chainid == 11155111) {
+        if (block.chainid == 11155111) {
             deployerPrivateKey = vm.envUint("SEPOLIA_DEPLOYER_PRIVATE_KEY");
-        } else {
+        } else if (block.chainid != 1) {
             revert("Network not supported");
         }
 
@@ -26,11 +28,9 @@ contract DeployPeriphery is Script {
         oracle = vm.envAddress("ORACLE");
     }
 
-    /** @dev cli for local testnet:  forge script script/DeployPeriphery.s.sol --rpc-url tarp_testnet --broadcast --legacy
-        @dev cli for Sepolia:        forge script script/DeployPeriphery.s.sol --rpc-url sepolia --chain sepolia --broadcast
-     */
     function run() public {
-        vm.startBroadcast(deployerPrivateKey);
+        if (block.chainid == 1) vm.startBroadcast();
+        else vm.startBroadcast(deployerPrivateKey);
 
         // Deploy assistant
         address assistant = address(
