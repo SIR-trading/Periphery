@@ -15,6 +15,7 @@ import {SystemControl} from "core/SystemControl.sol";
 import {SIR} from "core/SIR.sol";
 import {APE} from "core/APE.sol";
 import {Vault} from "core/Vault.sol";
+import {Contributors} from "core/Contributors.sol";
 
 import "forge-std/Test.sol";
 
@@ -29,7 +30,7 @@ contract TreasuryV1Test is Test {
         vm.createSelectFork("mainnet", 18128102);
 
         // Treasury address
-        string memory json = vm.readFile("lib/core/contributors/spice-contributors.json");
+        string memory json = vm.readFile("lib/core/contributors/posthack-contributors.json");
         proxy = stdJson.readAddress(json, "$[0].address");
 
         // ------------------- Treasury -------------------
@@ -52,8 +53,11 @@ contract TreasuryV1Test is Test {
         // Deploy SystemControl
         address systemControl = address(new SystemControl());
 
+        // Deploy Contributors
+        address contributors = address(new Contributors());
+
         // Deploy SIR
-        sir = payable(address(new SIR(Addresses.ADDR_WETH, systemControl)));
+        sir = payable(address(new SIR(contributors, Addresses.ADDR_WETH, systemControl)));
 
         // Deploy APE implementation
         address apeImplementation = address(new APE());

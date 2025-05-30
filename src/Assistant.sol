@@ -58,7 +58,7 @@ contract Assistant {
     }
 
     /**
-     * @notice It returns the ideal price of TEA.\n
+     * @notice It returns the ideal price of TEA.
      * To get the price as [units of Collateral][per unit of TEA], divide num by den.
      */
     function priceOfTEA(
@@ -74,7 +74,7 @@ contract Assistant {
     }
 
     /**
-     * @notice It returns the ideal price of APE if there were no fees for withdrawing.\n
+     * @notice It returns the price of the APE token.
      * To get the price as [units of Collateral][per unit of APE], divide num by den.
      */
     function priceOfAPE(
@@ -276,7 +276,10 @@ contract Assistant {
             uint256 supplyAPE = IERC20(ape).totalSupply();
 
             // Get collateralOut
-            uint256 collateralOut = uint144(FullMath.mulDiv(reserves.reserveApes, amountTokens, supplyAPE));
+            uint144 collateralOut = uint144(FullMath.mulDiv(reserves.reserveApes, amountTokens, supplyAPE));
+
+            // Get system parameters
+            SirStructs.SystemParameters memory systemParams = VAULT.systemParams();
 
             // Get collateral withdrawn
             amountCollateral = _feeAPE(collateralOut, systemParams.baseFee.fee, vaultParams.leverageTier);

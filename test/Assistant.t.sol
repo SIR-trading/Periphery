@@ -17,6 +17,7 @@ import {SystemControl} from "core/SystemControl.sol";
 import {SIR} from "core/SIR.sol";
 import {APE} from "core/APE.sol";
 import {Vault} from "core/Vault.sol";
+import {Contributors} from "core/Contributors.sol";
 import {Assistant} from "src/Assistant.sol";
 import {SafeERC20} from "openzeppelin/token/ERC20/utils/SafeERC20.sol";
 
@@ -70,8 +71,11 @@ contract AssistantTest is Test {
         // Deploy SystemControl
         address systemControl = address(new SystemControl());
 
+        // Deploy Contributors
+        address contributors = address(new Contributors());
+
         // Deploy SIR token contract
-        address payable sir = payable(address(new SIR(Addresses.ADDR_WETH, systemControl)));
+        address payable sir = payable(address(new SIR(contributors, Addresses.ADDR_WETH, systemControl)));
 
         // Deploy APE implementation
         address ape = address(new APE());
@@ -171,11 +175,11 @@ contract AssistantTest is Test {
         if (mintMustRevert) {
             // Mint must revert
             vm.expectRevert();
-            vault.mint(isAPE, vaultParams, wethDeposited, 0);
+            vault.mint(isAPE, vaultParams, wethDeposited, 0, 0);
         } else {
             try
                 // Mint could revert
-                vault.mint(isAPE, vaultParams, wethDeposited, 0)
+                vault.mint(isAPE, vaultParams, wethDeposited, 0, 0)
             returns (uint256 amountTokens_) {
                 // Mint does not revert like quoteMint
                 assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
@@ -233,11 +237,11 @@ contract AssistantTest is Test {
         if (mintMustRevert) {
             // Mint must revert
             vm.expectRevert();
-            vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited, 0);
+            vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited, 0, 0);
         } else {
             try
                 // Mint could revert
-                vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited, 0)
+                vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited, 0, 0)
             returns (uint256 amountTokens_) {
                 // Mint does not revert like quoteMint
                 assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
@@ -294,11 +298,11 @@ contract AssistantTest is Test {
         if (mintMustRevert) {
             // Mint must revert
             vm.expectRevert();
-            vault.mint(isAPE, vaultParams, usdtDeposited, amountCollateralMin);
+            vault.mint(isAPE, vaultParams, usdtDeposited, amountCollateralMin, 0);
         } else {
             try
                 // Mint could revert
-                vault.mint(isAPE, vaultParams, usdtDeposited, amountCollateralMin)
+                vault.mint(isAPE, vaultParams, usdtDeposited, amountCollateralMin, 0)
             returns (uint256 amountTokens_) {
                 // Mint does not revert like quoteMint
                 console.log("mint returned", amountTokens_);
@@ -352,11 +356,11 @@ contract AssistantTest is Test {
         if (mintMustRevert) {
             // Mint must revert
             vm.expectRevert();
-            vault.mint(isAPE, vaultParams, wethDeposited, 0);
+            vault.mint(isAPE, vaultParams, wethDeposited, 0, 0);
         } else {
             try
                 // Mint could revert
-                vault.mint(isAPE, vaultParams, wethDeposited, 0)
+                vault.mint(isAPE, vaultParams, wethDeposited, 0, 0)
             returns (uint256 amountTokens_) {
                 // Mint does not revert like quoteMint
                 assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
@@ -414,11 +418,11 @@ contract AssistantTest is Test {
         if (mintMustRevert) {
             // Mint must revert
             vm.expectRevert();
-            vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited, 0);
+            vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited, 0, 0);
         } else {
             try
                 // Mint could revert
-                vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited, 0)
+                vault.mint{value: ethDeposited}(isAPE, vaultParams, ethFakeDeposited, 0, 0)
             returns (uint256 amountTokens_) {
                 // Mint does not revert like quoteMint
                 assertEq(amountTokens_, amountTokens, "mint and quoteMint should return the same amount of tokens");
@@ -479,11 +483,11 @@ contract AssistantTest is Test {
         if (mintMustRevert) {
             // Mint must revert
             vm.expectRevert();
-            vault.mint(isAPE, vaultParams, usdtDeposited, amountCollateralMin);
+            vault.mint(isAPE, vaultParams, usdtDeposited, amountCollateralMin, 0);
         } else {
             try
                 // Mint could revert
-                vault.mint(isAPE, vaultParams, usdtDeposited, amountCollateralMin)
+                vault.mint(isAPE, vaultParams, usdtDeposited, amountCollateralMin, 0)
             returns (uint256 amountTokens_) {
                 // Mint does not revert like quoteMint
                 console.log("mint returned", amountTokens_);
@@ -526,11 +530,11 @@ contract AssistantTest is Test {
         if (burnMustRevert) {
             // Burn must revert
             vm.expectRevert();
-            vault.burn(isAPE, vaultParams, tokensBurnt);
+            vault.burn(isAPE, vaultParams, tokensBurnt, 0);
         } else {
             try
                 // Burn could revert
-                vault.burn(isAPE, vaultParams, tokensBurnt)
+                vault.burn(isAPE, vaultParams, tokensBurnt, 0)
             returns (uint144 amountCollateral_) {
                 // Burn does not revert like quoteBurn
                 assertEq(
