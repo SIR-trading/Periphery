@@ -82,7 +82,12 @@ contract Assistant {
     ) external view returns (uint256 num, uint256 den) {
         // Get current reserves
         SirStructs.Reserves memory reserves = VAULT.getReserves(vaultParams);
-        num = reserves.reserveApes;
+
+        // Get system parameters
+        SirStructs.SystemParameters memory systemParams = VAULT.systemParams();
+
+        // Substract fees
+        num = _feeAPE(reserves.reserveApes, systemParams.baseFee.fee, vaultParams.leverageTier);
 
         // Get supply of APE
         SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
@@ -149,19 +154,7 @@ contract Assistant {
         SirStructs.SystemParameters memory systemParams = VAULT.systemParams();
         if (isAPE) {
             // Compute how much collateral actually gets deposited
-            uint256 feeNum;
-            uint256 feeDen;
-            if (vaultParams.leverageTier >= 0) {
-                feeNum = 10000; // baseFee is uint16, leverageTier is int8, so feeNum does not require more than 24 bits
-                feeDen = 10000 + (uint256(systemParams.baseFee.fee) << uint8(vaultParams.leverageTier));
-            } else {
-                uint256 temp = 10000 << uint8(-vaultParams.leverageTier);
-                feeNum = temp;
-                feeDen = temp + uint256(systemParams.baseFee.fee);
-            }
-
-            // Get collateralIn
-            uint256 collateralIn = (uint256(amountCollateral) * feeNum) / feeDen;
+            uint256 collateralIn = _feeAPE(amountCollateral, systemParams.baseFee.fee, vaultParams.leverageTier);
 
             // Get supply of APE
             address ape = getAddressAPE(vaultState.vaultId);
@@ -172,9 +165,8 @@ contract Assistant {
                 ? collateralIn + reserves.reserveApes
                 : FullMath.mulDiv(supplyAPE, collateralIn, reserves.reserveApes);
         } else {
-            // Compute how much collateral actually gets deposited
-            uint256 feeNum = 10000;
-            uint256 feeDen = 10000 + uint256(systemParams.lpFee.fee);
+            // Get collateralIn
+            uint256 collateralIn = _feeMintTEA(amountCollateral, systemParams.lpFee.fee);
 
             // Get supply of TEA
             uint256 supplyTEA = VAULT.totalSupply(vaultState.vaultId);
@@ -186,9 +178,6 @@ contract Assistant {
 
             // Check that total supply does not overflow
             if (amountTokens > SystemConstants.TEA_MAX_SUPPLY - supplyTEA) revert TEAMaxSupplyExceeded();
-
-            // Get collateralIn
-            uint256 collateralIn = uint144((uint256(amountCollateral) * feeNum) / feeDen);
 
             // Minter's share of TEA
             amountTokens = FullMath.mulDiv(
@@ -289,21 +278,8 @@ contract Assistant {
             // Get collateralOut
             uint256 collateralOut = uint144(FullMath.mulDiv(reserves.reserveApes, amountTokens, supplyAPE));
 
-            // Compute collateral withdrawn
-            SirStructs.SystemParameters memory systemParams = VAULT.systemParams();
-            uint256 feeNum;
-            uint256 feeDen;
-            if (vaultParams.leverageTier >= 0) {
-                feeNum = 10000;
-                feeDen = 10000 + (uint256(systemParams.baseFee.fee) << uint8(vaultParams.leverageTier));
-            } else {
-                uint256 temp = 10000 << uint8(-vaultParams.leverageTier);
-                feeNum = temp;
-                feeDen = temp + uint256(systemParams.baseFee.fee);
-            }
-
             // Get collateral withdrawn
-            amountCollateral = uint144((collateralOut * feeNum) / feeDen);
+            amountCollateral = _feeAPE(collateralOut, systemParams.baseFee.fee, vaultParams.leverageTier);
         } else {
             // Get supply of TEA
             uint256 supplyTEA = VAULT.totalSupply(vaultState.vaultId);
@@ -316,6 +292,36 @@ contract Assistant {
     /*////////////////////////////////////////////////////////////////
                             PRIVATE FUNCTIONS
     ////////////////////////////////////////////////////////////////*/
+
+    function _feeAPE(
+        uint144 collateralDepositedOrOut,
+        uint16 baseFee,
+        int256 leverageTier
+    ) private pure returns (uint144 collateralInOrWithdrawn) {
+        unchecked {
+            uint256 feeNum;
+            uint256 feeDen;
+            if (leverageTier >= 0) {
+                feeNum = 10000; // baseFee is uint16, leverageTier is int8, so feeNum does not require more than 24 bits
+                feeDen = 10000 + (uint256(baseFee) << uint256(leverageTier));
+            } else {
+                uint256 temp = 10000 << uint256(-leverageTier);
+                feeNum = temp;
+                feeDen = temp + uint256(baseFee);
+            }
+
+            collateralInOrWithdrawn = uint144((uint256(collateralDepositedOrOut) * feeNum) / feeDen);
+        }
+    }
+
+    function _feeMintTEA(uint144 collateralDeposited, uint16 lpFee) private pure returns (uint144 collateralIn) {
+        unchecked {
+            uint256 feeNum = 10000;
+            uint256 feeDen = 10000 + uint256(lpFee);
+
+            collateralIn = uint144((uint256(collateralDeposited) * feeNum) / feeDen);
+        }
+    }
 
     function _checkFeeTierExists(
         SirStructs.VaultParameters calldata vaultParams,
