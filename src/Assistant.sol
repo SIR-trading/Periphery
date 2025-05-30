@@ -48,12 +48,42 @@ contract Assistant {
         else revert("Network not supported");
     }
 
+    /**
+     *  @notice It returns the reserves of the vaults specified in vaultIds
+     */
     function getReserves(uint48[] calldata vaultIds) external view returns (SirStructs.Reserves[] memory reserves) {
         reserves = new SirStructs.Reserves[](vaultIds.length);
         SirStructs.VaultParameters memory vaultParams;
         for (uint256 i = 0; i < vaultIds.length; i++) {
             vaultParams = VAULT.paramsById(vaultIds[i]);
             reserves[i] = VAULT.getReserves(vaultParams);
+        }
+    }
+
+    /**
+     *  @notice It returns the balances of the user in vaults [offset + 1, offset + numVaults].
+     *  @param user The address of the user.
+     *  @param offset The offset of the vaults.
+     *  @param numVaults The number of vaults.
+     */
+    function getUserBalances(
+        address user,
+        uint offset,
+        uint numVaults
+    )
+        external
+        view
+        returns (uint256[] memory apeBalances, uint256[] memory teaBalances, uint80[] memory unclaimedSirRewards)
+    {
+        IERC20 ape;
+        apeBalances = new uint256[](numVaults);
+        teaBalances = new uint256[](numVaults);
+        unclaimedSirRewards = new uint80[](numVaults);
+        for (uint256 vaultId = offset + 1; vaultId <= offset + numVaults; vaultId++) {
+            ape = IERC20(AddressClone.getAddress(address(VAULT), vaultId));
+            apeBalances[vaultId - offset - 1] = ape.balanceOf(user);
+            teaBalances[vaultId - offset - 1] = VAULT.balanceOf(user, vaultId);
+            unclaimedSirRewards[vaultId - offset - 1] = VAULT.unclaimedRewards(vaultId, user);
         }
     }
 
@@ -94,6 +124,13 @@ contract Assistant {
         den = IERC20(getAddressAPE(vaultState.vaultId)).totalSupply();
     }
 
+    /**
+     * @notice It returns the status of the vault.
+     * 0: InvalidVault - returned when the ERC20 tokens are not valid.
+     * 1: NoUniswapPool - returned when no Uniswap pool of the two tokens does not exist.
+     * 2: VaultCanBeCreated - vault does not exist and it can be created.
+     * 3: VaultAlreadyExists - vault already exists.
+     */
     function getVaultStatus(SirStructs.VaultParameters calldata vaultParams) external view returns (VaultStatus) {
         // Check if the token addresses are a smart contract
         if (vaultParams.collateralToken.code.length == 0) return VaultStatus.InvalidVault;
@@ -130,7 +167,7 @@ contract Assistant {
     }
 
     /*////////////////////////////////////////////////////////////////
-                            SIMULATION FUNCTIONS
+                            QUOTE FUNCTIONS
     ////////////////////////////////////////////////////////////////*/
 
     /**
