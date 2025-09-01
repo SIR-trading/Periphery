@@ -228,7 +228,6 @@ contract AssistantTest is Test {
             amountTokens = amountTokens_;
         } catch {
             mintMustRevert = true;
-            vm.expectRevert();
         }
 
         vm.clearMockedCalls();

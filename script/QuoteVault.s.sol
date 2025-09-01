@@ -12,7 +12,7 @@ contract QuoteVault is Script {
     uint256 deployerPrivateKey;
 
     IVault public vault;
-    IOracle public oracle;
+    address public oracle;
     Assistant public assistant;
 
     function setUp() public {
@@ -25,7 +25,7 @@ contract QuoteVault is Script {
         }
 
         vault = IVault(vm.envAddress("VAULT"));
-        oracle = IOracle(vm.envAddress("ORACLE"));
+        oracle = vault.ORACLE();
         assistant = Assistant(vm.envAddress("ASSISTANT"));
     }
 
@@ -37,10 +37,10 @@ contract QuoteVault is Script {
 
         SirStructs.VaultParameters memory vaultParams = vault.paramsById(1);
 
-        SirStructs.OracleState memory state = oracle.state(vaultParams.collateralToken, vaultParams.debtToken);
+        SirStructs.OracleState memory state = IOracle(oracle).state(vaultParams.collateralToken, vaultParams.debtToken);
         console.log("Uniswap fee tier: ", state.uniswapFeeTier.fee);
 
-        uint24 feeTier = oracle.uniswapFeeTierOf(vaultParams.collateralToken, vaultParams.debtToken);
+        uint24 feeTier = IOracle(oracle).uniswapFeeTierOf(vaultParams.collateralToken, vaultParams.debtToken);
         console.log("Uniswap fee tier: ", feeTier);
 
         // Quote vault id 1

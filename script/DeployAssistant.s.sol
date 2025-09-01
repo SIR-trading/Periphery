@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "forge-std/Script.sol";
 
 import {Assistant} from "src/Assistant.sol";
+import {IVault} from "core/interfaces/IVault.sol";
 import {Addresses} from "core/libraries/Addresses.sol";
 import {AddressesSepolia} from "core/libraries/AddressesSepolia.sol";
 
@@ -14,7 +15,7 @@ import {AddressesSepolia} from "core/libraries/AddressesSepolia.sol";
 contract DeployAssistant is Script {
     uint256 deployerPrivateKey;
 
-    address public vault;
+    IVault public vault;
     address public oracle;
 
     function setUp() public {
@@ -24,8 +25,8 @@ contract DeployAssistant is Script {
             revert("Network not supported");
         }
 
-        vault = vm.envAddress("VAULT");
-        oracle = vm.envAddress("ORACLE");
+        vault = IVault(vm.envAddress("VAULT"));
+        oracle = vault.ORACLE();
     }
 
     function run() public {
@@ -35,7 +36,7 @@ contract DeployAssistant is Script {
         // Deploy assistant
         address assistant = address(
             new Assistant(
-                vault,
+                address(vault),
                 oracle,
                 block.chainid == 1 ? Addresses.ADDR_UNISWAPV3_FACTORY : AddressesSepolia.ADDR_UNISWAPV3_FACTORY
             )
