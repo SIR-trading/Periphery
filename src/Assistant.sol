@@ -43,9 +43,10 @@ contract Assistant {
         SIR_ORACLE = IOracle(oracle);
         UNISWAPV3_FACTORY = uniswapV3Factory;
 
-        if (block.chainid == 1) UNISWAPV3_QUOTER = IQuoter(0x5e55C9e631FAE526cd4B0526C4818D6e0a9eF0e3);
-        else if (block.chainid == 11155111) UNISWAPV3_QUOTER = IQuoter(0xe3c07ebF66b9D070b589bCCa30903891F71A92Be);
-        else revert("Network not supported");
+        if (block.chainid == 999)
+            UNISWAPV3_QUOTER = IQuoter(address(0)); // TODO: Update with actual deployed address
+        else if (block.chainid == 998) UNISWAPV3_QUOTER = IQuoter(0x7F3856d63E74516EF142A51c7445fBBc373fed5a);
+        else revert("Network not supported. Use chain 998 (testnet) or 999 (mainnet)");
     }
 
     /**

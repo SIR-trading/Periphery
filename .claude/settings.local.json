@@ -2,7 +2,10 @@
   "permissions": {
     "allow": [
       "Bash(find:*)",
-      "Bash(forge test:*)"
+      "Bash(forge test:*)",
+      "Bash(git checkout:*)",
+      "Bash(forge compile:*)",
+      "Bash(forge build:*)"
     ],
     "deny": [],
     "ask": []
