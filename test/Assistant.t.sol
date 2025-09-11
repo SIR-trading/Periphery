@@ -6,7 +6,7 @@ import {IWETH9} from "core/interfaces/IWETH9.sol";
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
 // Libraries
-import {Addresses} from "core/libraries/Addresses.sol";
+import {AddressesHyperEVM} from "core/libraries/AddressesHyperEVM.sol";
 import {SystemConstants} from "core/libraries/SystemConstants.sol";
 import {SirStructs} from "core/libraries/SirStructs.sol";
 import {AddressClone} from "core/libraries/AddressClone.sol";
@@ -44,29 +44,27 @@ contract AssistantTest is Test {
     uint256 constant SLOT_VAULT_STATE = 9;
     uint256 constant SLOT_RESERVES_TOTAL = 10;
 
-    IWETH9 private constant WETH = IWETH9(Addresses.ADDR_WETH);
-    IERC20 private constant USDT = IERC20(Addresses.ADDR_USDT);
+    IWETH9 private constant WHYPE = IWETH9(AddressesHyperEVM.ADDR_WHYPE);
+    IERC20 private constant USDT = IERC20(AddressesHyperEVM.ADDR_USDT0);
 
     Vault vault;
     Assistant assistant;
 
-    uint96 constant ETH_SUPPLY = 120e6 * 10 ** 18;
+    uint96 constant HYPE_SUPPLY = 120e6 * 10 ** 18;
     uint256 constant USDT_SUPPLY = 100e9 * 10 ** 6;
 
     SirStructs.VaultParameters vaultParams =
         SirStructs.VaultParameters({
-            debtToken: Addresses.ADDR_USDT,
-            collateralToken: Addresses.ADDR_WETH,
+            debtToken: AddressesHyperEVM.ADDR_USDT0,
+            collateralToken: AddressesHyperEVM.ADDR_WHYPE,
             leverageTier: 0
         });
 
     function setUp() public {
-        // vm.writeFile("./mint.log", "");
-
-        vm.createSelectFork("mainnet", 19662664);
+        vm.createSelectFork("hyperevm", 13552974);
 
         // Deploy oracle
-        address oracle = address(new Oracle(Addresses.ADDR_UNISWAPV3_FACTORY));
+        address oracle = address(new Oracle(AddressesHyperEVM.ADDR_UNISWAPV3_FACTORY));
 
         // Deploy SystemControl
         address systemControl = address(new SystemControl());
@@ -75,13 +73,13 @@ contract AssistantTest is Test {
         address contributors = address(new Contributors());
 
         // Deploy SIR token contract
-        address payable sir = payable(address(new SIR(contributors, Addresses.ADDR_WETH, systemControl)));
+        address payable sir = payable(address(new SIR(contributors, AddressesHyperEVM.ADDR_WHYPE, systemControl)));
 
         // Deploy APE implementation
         address ape = address(new APE());
 
         // Deploy Vault
-        vault = new Vault(systemControl, sir, oracle, ape, Addresses.ADDR_WETH);
+        vault = new Vault(systemControl, sir, oracle, ape, AddressesHyperEVM.ADDR_WHYPE);
 
         // Initialize SIR
         SIR(sir).initialize(address(vault));
@@ -89,13 +87,15 @@ contract AssistantTest is Test {
         // Initialize SystemControl
         SystemControl(systemControl).initialize(address(vault), sir);
 
+        console.log(address(vault), oracle, AddressesHyperEVM.ADDR_UNISWAPV3_FACTORY);
+
         // Deploy Assistant
-        assistant = new Assistant(address(vault), oracle, Addresses.ADDR_UNISWAPV3_FACTORY);
+        assistant = new Assistant(address(vault), oracle, AddressesHyperEVM.ADDR_UNISWAPV3_FACTORY);
 
-        // Approve Assistant to spend WETH
-        WETH.approve(address(vault), type(uint256).max);
+        console.log("there");
 
-        vm.writeFile("./test.log", "");
+        // Approve Assistant to spend WHYPE
+        WHYPE.approve(address(vault), type(uint256).max);
     }
 
     enum VaultStatus {
@@ -119,16 +119,16 @@ contract AssistantTest is Test {
     }
 
     function test_getVaultWithNoUniswapPool() public {
-        vaultParams.collateralToken = Addresses.ADDR_BNB;
-        vaultParams.debtToken = Addresses.ADDR_FRAX;
+        vaultParams.collateralToken = AddressesHyperEVM.ADDR_kHYPE;
+        vaultParams.debtToken = AddressesHyperEVM.ADDR_PENDLE;
 
         uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
         assertEq(vaultStatus, uint256(VaultStatus.NoUniswapPool));
     }
 
     function test_getVaultWithWrongAddress() public {
-        vaultParams.collateralToken = Addresses.ADDR_WETH;
-        vaultParams.debtToken = Addresses.ADDR_UNISWAPV3_FACTORY;
+        vaultParams.collateralToken = AddressesHyperEVM.ADDR_WHYPE;
+        vaultParams.debtToken = AddressesHyperEVM.ADDR_UNISWAPV3_FACTORY;
 
         uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
         assertEq(vaultStatus, uint256(VaultStatus.InvalidVault));
@@ -146,13 +146,13 @@ contract AssistantTest is Test {
         // Initialize vault
         _initializeVault(leverageTier);
 
-        // Bound WETH amounts
-        wethMinted = uint144(_bound(wethMinted, 0, ETH_SUPPLY));
+        // Bound WHYPE amounts
+        wethMinted = uint144(_bound(wethMinted, 0, HYPE_SUPPLY));
         wethDeposited = uint144(_bound(wethDeposited, 0, wethMinted)); // Minimum amount that must be deposited is
 
-        // Deal WETH
+        // Deal WHYPE
         vm.assume(user != address(0));
-        _dealWETH(user, wethMinted);
+        _dealWHYPE(user, wethMinted);
 
         // Mint TEA or APE and test it against quoteMint
         bool mintMustRevert;
@@ -167,9 +167,9 @@ contract AssistantTest is Test {
             mintMustRevert = true;
         }
 
-        // Approve vault to spend WETH
+        // Approve vault to spend WHYPE
         vm.prank(user);
-        WETH.approve(address(vault), wethDeposited);
+        WHYPE.approve(address(vault), wethDeposited);
 
         vm.prank(user);
         if (mintMustRevert) {
@@ -191,7 +191,7 @@ contract AssistantTest is Test {
 
     /** @dev Important to run first quoteMint before mint changes the state of the Vault
      */
-    function testFuzz_mintWithETHFirstTime(
+    function testFuzz_mintWithHYPEFirstTime(
         bool isAPE,
         int8 leverageTier,
         uint144 ethMinted,
@@ -202,19 +202,19 @@ contract AssistantTest is Test {
         // Initialize vault
         _initializeVault(leverageTier);
 
-        // Bound ETH amounts
-        ethMinted = uint144(_bound(ethMinted, 0, ETH_SUPPLY));
+        // Bound HYPE amounts
+        ethMinted = uint144(_bound(ethMinted, 0, HYPE_SUPPLY));
         ethDeposited = uint144(_bound(ethDeposited, 0, ethMinted)); // Minimum amount that must be deposited is
 
-        // Deal ETH
+        // Deal HYPE
         vm.assume(user != address(0));
         vm.deal(user, ethMinted);
 
         // For exactness quoteMint needs to retrieve the exact same totalSupply
         vm.mockCall(
-            Addresses.ADDR_WETH,
-            abi.encodeWithSelector(WETH.totalSupply.selector),
-            abi.encode(WETH.totalSupply() + ethDeposited)
+            AddressesHyperEVM.ADDR_WHYPE,
+            abi.encodeWithSelector(WHYPE.totalSupply.selector),
+            abi.encode(WHYPE.totalSupply() + ethDeposited)
         );
 
         // Mint TEA or APE and test it against quoteMint
@@ -326,17 +326,17 @@ contract AssistantTest is Test {
         // Initialize vault state
         _initializeState(vaultParams.leverageTier, state);
 
-        // Bound WETH amounts
-        wethMinted = uint144(_bound(wethMinted, 0, ETH_SUPPLY));
+        // Bound WHYPE amounts
+        wethMinted = uint144(_bound(wethMinted, 0, HYPE_SUPPLY));
         wethDeposited = uint144(_bound(wethDeposited, 0, wethMinted)); // Minimum amount that must be deposited is
 
-        // Deal WETH
+        // Deal WHYPE
         vm.assume(user != address(0));
-        _dealWETH(user, wethMinted);
+        _dealWHYPE(user, wethMinted);
 
-        // Approve assistant to spend WETH
+        // Approve assistant to spend WHYPE
         vm.prank(user);
-        WETH.approve(address(vault), wethDeposited);
+        WHYPE.approve(address(vault), wethDeposited);
 
         // Mint TEA or APE and test it against quoteMint
         bool mintMustRevert;
@@ -369,7 +369,7 @@ contract AssistantTest is Test {
         }
     }
 
-    function testFuzz_mintWithETH(
+    function testFuzz_mintWithHYPE(
         bool isAPE,
         int8 leverageTier,
         uint144 ethMinted,
@@ -384,11 +384,11 @@ contract AssistantTest is Test {
         // Initialize vault state
         _initializeState(vaultParams.leverageTier, state);
 
-        // Bound ETH amounts
-        ethMinted = uint144(_bound(ethMinted, 0, ETH_SUPPLY));
+        // Bound HYPE amounts
+        ethMinted = uint144(_bound(ethMinted, 0, HYPE_SUPPLY));
         ethDeposited = uint144(_bound(ethDeposited, 0, ethMinted)); // Minimum amount that must be deposited is
 
-        // Deal ETH
+        // Deal HYPE
         vm.assume(user != address(0));
         deal(user, ethMinted);
 
@@ -396,9 +396,9 @@ contract AssistantTest is Test {
         bool mintMustRevert;
         uint256 amountTokens;
 
-        // Simulate WETH supply increase due to wrapping the received ETH
+        // Simulate WHYPE supply increase due to wrapping the received HYPE
         deal(address(this), ethDeposited);
-        WETH.deposit{value: ethDeposited}();
+        WHYPE.deposit{value: ethDeposited}();
 
         try
             // Quote mint
@@ -410,8 +410,8 @@ contract AssistantTest is Test {
             mintMustRevert = true;
         }
 
-        // Remove extra WETH
-        WETH.withdraw(ethDeposited);
+        // Remove extra WHYPE
+        WHYPE.withdraw(ethDeposited);
         vm.prank(user);
 
         if (mintMustRevert) {
@@ -567,22 +567,22 @@ contract AssistantTest is Test {
     //////////////////////////////////////////////////////////////////////
 
     function _initializeState(int8 leverageTier, State memory state) private {
-        state.totalReserve = _bound(state.totalReserve, 2, ETH_SUPPLY);
-        state.collectedFees = _bound(state.collectedFees, 0, ETH_SUPPLY);
+        state.totalReserve = _bound(state.totalReserve, 2, HYPE_SUPPLY);
+        state.collectedFees = _bound(state.collectedFees, 0, HYPE_SUPPLY);
 
         state.teaTotalSupply = uint128(_bound(state.teaTotalSupply, 0, SystemConstants.TEA_MAX_SUPPLY));
         state.teaBalanceVault = uint128(_bound(state.teaBalanceVault, 0, state.teaTotalSupply));
 
-        // Deposit WETH to vault
-        _dealWETH(address(vault), state.totalReserve + state.collectedFees);
+        // Deposit WHYPE to vault
+        _dealWHYPE(address(vault), state.totalReserve + state.collectedFees);
 
         bytes32 slotInd = keccak256(
             abi.encode(
                 leverageTier,
                 keccak256(
                     abi.encode(
-                        Addresses.ADDR_WETH,
-                        keccak256(abi.encode(Addresses.ADDR_USDT, bytes32(uint256(SLOT_VAULT_STATE))))
+                        AddressesHyperEVM.ADDR_WHYPE,
+                        keccak256(abi.encode(AddressesHyperEVM.ADDR_USDT0, bytes32(uint256(SLOT_VAULT_STATE))))
                     )
                 )
             )
@@ -598,7 +598,7 @@ contract AssistantTest is Test {
         );
 
         SirStructs.VaultState memory vaultState = vault.vaultStates(
-            SirStructs.VaultParameters(Addresses.ADDR_USDT, Addresses.ADDR_WETH, leverageTier)
+            SirStructs.VaultParameters(AddressesHyperEVM.ADDR_USDT0, AddressesHyperEVM.ADDR_WHYPE, leverageTier)
         );
         assertEq(vaultState.reserve, state.totalReserve, "Wrong reserve used by vm.store");
         assertEq(vaultState.tickPriceSatX42, state.tickPriceSatX42, "Wrong tickPriceSatX42 used by vm.store");
@@ -606,12 +606,12 @@ contract AssistantTest is Test {
 
         //////////////////////////////////////////////////////////////////////////
 
-        slotInd = keccak256(abi.encode(Addresses.ADDR_WETH, bytes32(uint256(SLOT_RESERVES_TOTAL))));
+        slotInd = keccak256(abi.encode(AddressesHyperEVM.ADDR_WHYPE, bytes32(uint256(SLOT_RESERVES_TOTAL))));
         vm.store(address(vault), slotInd, bytes32(state.totalReserve));
 
-        uint256 totalReserve_ = vault.totalReserves(Addresses.ADDR_WETH);
+        uint256 totalReserve_ = vault.totalReserves(AddressesHyperEVM.ADDR_WHYPE);
         assertEq(
-            WETH.balanceOf(address(vault)) - state.totalReserve,
+            WHYPE.balanceOf(address(vault)) - state.totalReserve,
             state.collectedFees,
             "Wrong collectedFees used by vm.store"
         );
@@ -633,19 +633,11 @@ contract AssistantTest is Test {
         vault.initialize(vaultParams);
     }
 
-    function _dealWETH(address to, uint256 amount) private {
+    function _dealWHYPE(address to, uint256 amount) private {
         vm.deal(vm.addr(1), amount);
         vm.prank(vm.addr(1));
-        WETH.deposit{value: amount}();
+        WHYPE.deposit{value: amount}();
         vm.prank(vm.addr(1));
-        WETH.transfer(address(to), amount);
+        WHYPE.transfer(address(to), amount);
     }
-
-    // function _dealUSDT(address to, uint256 amount) private {
-    //     if (amount == 0) return;
-    //     deal(Addresses.ADDR_USDT, vm.addr(1), amount);
-    //     vm.prank(vm.addr(1));
-    //     USDT.approve(address(this), amount);
-    //     USDT.transferFrom(vm.addr(1), to, amount); // I used transferFrom instead of transfer because of the weird BNB non-standard quirks
-    // }
 }

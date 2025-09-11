@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 import {IERC20} from "openzeppelin/token/ERC20/IERC20.sol";
 
 // Libraries
-import {Addresses} from "core/libraries/Addresses.sol";
+import {AddressesHyperEVM} from "core/libraries/AddressesHyperEVM.sol";
 
 // Contracts
 import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
@@ -27,11 +27,7 @@ contract TreasuryV1Test is Test {
     address payable sir;
 
     function setUp() public {
-        vm.createSelectFork("mainnet", 18128102);
-
-        // Treasury address
-        string memory json = vm.readFile("lib/core/contributors/posthack-contributors.json");
-        proxy = stdJson.readAddress(json, "$[0].address");
+        vm.createSelectFork("hyperevm", 13552974);
 
         // ------------------- Treasury -------------------
 
@@ -39,16 +35,17 @@ contract TreasuryV1Test is Test {
         TreasuryV1 treasuryImplementation = new TreasuryV1();
 
         // Deploy treasury proxy and initialize owner
-        deployCodeTo(
-            "ERC1967Proxy.sol",
-            abi.encode(address(treasuryImplementation), abi.encodeWithSelector(TreasuryV1.initialize.selector)),
-            proxy
+        proxy = address(
+            new ERC1967Proxy(
+                address(treasuryImplementation),
+                abi.encodeWithSelector(TreasuryV1.initialize.selector)
+            )
         );
 
         // --------------------- Core ---------------------
 
         // Deploy oracle
-        address oracle = address(new Oracle(Addresses.ADDR_UNISWAPV3_FACTORY));
+        address oracle = address(new Oracle(AddressesHyperEVM.ADDR_UNISWAPV3_FACTORY));
 
         // Deploy SystemControl
         address systemControl = address(new SystemControl());
@@ -57,13 +54,13 @@ contract TreasuryV1Test is Test {
         address contributors = address(new Contributors());
 
         // Deploy SIR
-        sir = payable(address(new SIR(contributors, Addresses.ADDR_WETH, systemControl)));
+        sir = payable(address(new SIR(contributors, AddressesHyperEVM.ADDR_WHYPE, systemControl)));
 
         // Deploy APE implementation
         address apeImplementation = address(new APE());
 
         // Deploy Vault
-        address vault = address(new Vault(systemControl, sir, oracle, apeImplementation, Addresses.ADDR_WETH));
+        address vault = address(new Vault(systemControl, sir, oracle, apeImplementation, AddressesHyperEVM.ADDR_WHYPE));
 
         // Initialize SIR
         SIR(sir).initialize(vault);

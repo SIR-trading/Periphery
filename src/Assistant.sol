@@ -11,7 +11,7 @@ import {IUniswapV3Pool} from "v3-core/interfaces/IUniswapV3Pool.sol";
 import {SirStructs} from "core/libraries/SirStructs.sol";
 import {SystemConstants} from "core/libraries/SystemConstants.sol";
 import {FullMath} from "core/libraries/FullMath.sol";
-import {IWETH9, IERC20} from "core/interfaces/IWETH9.sol";
+import {IERC20} from "core/interfaces/IWETH9.sol";
 import {UniswapPoolAddress} from "core/libraries/UniswapPoolAddress.sol";
 import {AddressClone} from "core/libraries/AddressClone.sol";
 

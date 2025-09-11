@@ -10,26 +10,26 @@ import {TreasuryV1} from "src/TreasuryV1.sol";
 
 import "forge-std/Script.sol";
 
-/// @dev cli for mainnet:  forge script script/TreasurySend.s.sol --rpc-url mainnet --chain 1 --broadcast --verify --ledger --hd-paths HD_PATH -vvvv
-/// @dev cli for Sepolia:  forge script script/TreasurySend.s.sol --rpc-url sepolia --chain sepolia --broadcast -vvvv
+/// @dev cli for HyperEVM testnet with big blocks:
+///     BB_GAS=$(cast rpc --rpc-url hypertest eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
+///     forge script script/TreasurySend.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --slow
+/// @dev cli for HyperEVM mainnet with big blocks:
+///     BB_GAS=$(cast rpc --rpc-url hyperevm eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
+///     forge script script/TreasurySend.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --slow
 contract TreasurySend is Script {
-    uint256 privateKey;
-
     IVault vault;
     address sir;
     TreasuryV1 treasury;
 
     // Constants for transfer
-    address constant RECIPIENT = address(0xAA7A9d80971E58641442774C373C94AaFee87d66);
-    uint256 constant AMOUNT = 2e6 * 1e12;
+    address constant RECIPIENT = 0x5000Ff6Cc1864690d947B864B9FB0d603E8d1F1A;
+    uint256 constant AMOUNT = 6.8e6 * 1e12;
 
     function setUp() public {
-        if (block.chainid == 11155111) {
-            privateKey = vm.envUint("SEPOLIA_DEPLOYER_PRIVATE_KEY");
-        } else if (block.chainid != 1) {
-            revert("Network not supported");
+        if (block.chainid != 998 && block.chainid != 999) {
+            revert("Network not supported. Use chain 998 (testnet) or 999 (mainnet)");
         }
-
+        
         vault = IVault(vm.envAddress("VAULT"));
         sir = vault.SIR();
         treasury = TreasuryV1(vm.envAddress("TREASURY"));
@@ -39,8 +39,7 @@ contract TreasurySend is Script {
         require(RECIPIENT != address(0), "Invalid recipient address");
         require(AMOUNT > 0, "Amount must be greater than 0");
 
-        if (block.chainid == 1) vm.startBroadcast();
-        else vm.startBroadcast(privateKey);
+        vm.startBroadcast();
 
         // Check treasury balance before transfer
         uint256 treasuryBalance = IERC20(sir).balanceOf(address(treasury));

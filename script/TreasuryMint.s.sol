@@ -9,35 +9,34 @@ import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import {IVault} from "core/interfaces/IVault.sol";
 import {ISIR} from "core/interfaces/ISIR.sol";
 import {SirStructs} from "core/libraries/SirStructs.sol";
-import {Addresses} from "core/libraries/Addresses.sol";
+import {AddressesHyperEVM} from "core/libraries/AddressesHyperEVM.sol";
 import {TreasuryV1} from "src/TreasuryV1.sol";
 
 import "forge-std/Script.sol";
 
-/// @dev cli for mainnet:  forge script script/TreasuryMint.s.sol --rpc-url mainnet --chain 1 --broadcast --verify --ledger --hd-paths HD_PATH
-/// @dev cli for Sepolia:  forge script script/TreasuryMint.s.sol --rpc-url sepolia --chain sepolia --broadcast
+/// @dev cli for HyperEVM testnet with big blocks:
+///     BB_GAS=$(cast rpc --rpc-url hypertest eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
+///     forge script script/TreasuryMint.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --slow
+/// @dev cli for HyperEVM mainnet with big blocks:
+///     BB_GAS=$(cast rpc --rpc-url hyperevm eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
+///     forge script script/TreasuryMint.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --slow
 contract TreasuryMint is Script {
-    uint256 privateKey;
-
     IVault vault;
     address sir;
     TreasuryV1 treasury;
 
     function setUp() public {
-        if (block.chainid == 11155111) {
-            privateKey = vm.envUint("SEPOLIA_DEPLOYER_PRIVATE_KEY");
-        } else if (block.chainid != 1) {
-            revert("Network not supported");
+        if (block.chainid != 998 && block.chainid != 999) {
+            revert("Network not supported. Use chain 998 (testnet) or 999 (mainnet)");
         }
-
+        
         vault = IVault(vm.envAddress("VAULT"));
         sir = vault.SIR();
         treasury = TreasuryV1(vm.envAddress("TREASURY"));
     }
 
     function run() public {
-        if (block.chainid == 1) vm.startBroadcast();
-        else vm.startBroadcast(privateKey);
+        vm.startBroadcast();
 
         // Log initial balances
         uint256 treasuryBalanceBefore = IERC20(sir).balanceOf(address(treasury));

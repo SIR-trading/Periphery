@@ -5,40 +5,43 @@ import "forge-std/Script.sol";
 
 import {Assistant} from "src/Assistant.sol";
 import {IVault} from "core/interfaces/IVault.sol";
-import {Addresses} from "core/libraries/Addresses.sol";
-import {AddressesSepolia} from "core/libraries/AddressesSepolia.sol";
+import {AddressesHyperEVM} from "core/libraries/AddressesHyperEVM.sol";
+import {AddressesHyperEVMTest} from "core/libraries/AddressesHyperEVMTest.sol";
 
 /**
- * @dev cli for local testnet:  forge script script/DeployAssistant.s.sol --rpc-url mainnet --chain 1 --broadcast --verify --ledger --hd-paths PATHS --etherscan-api-key YOUR_KEY
- * @dev cli for Sepolia:        forge script script/DeployAssistant.s.sol --rpc-url sepolia --chain sepolia --broadcast
+ * @dev cli for HyperEVM testnet with big blocks:
+ *     BB_GAS=$(cast rpc --rpc-url hypertest eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
+ *     forge script script/DeployAssistant.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --slow
+ * @dev cli for HyperEVM mainnet with big blocks:
+ *     BB_GAS=$(cast rpc --rpc-url hyperevm eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
+ *     forge script script/DeployAssistant.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --slow
  */
 contract DeployAssistant is Script {
-    uint256 deployerPrivateKey;
-
     IVault public vault;
     address public oracle;
 
     function setUp() public {
-        if (block.chainid == 11155111) {
-            deployerPrivateKey = vm.envUint("SEPOLIA_DEPLOYER_PRIVATE_KEY");
-        } else if (block.chainid != 1) {
-            revert("Network not supported");
+        if (block.chainid != 998 && block.chainid != 999) {
+            revert("Network not supported. Use chain 998 (testnet) or 999 (mainnet)");
         }
-
+        
         vault = IVault(vm.envAddress("VAULT"));
         oracle = vault.ORACLE();
     }
 
     function run() public {
-        if (block.chainid == 1) vm.startBroadcast();
-        else vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Deploy assistant
+        address uniswapFactory = block.chainid == 999 
+            ? AddressesHyperEVM.ADDR_UNISWAPV3_FACTORY 
+            : AddressesHyperEVMTest.ADDR_UNISWAPV3_FACTORY;
+            
         address assistant = address(
             new Assistant(
                 address(vault),
                 oracle,
-                block.chainid == 1 ? Addresses.ADDR_UNISWAPV3_FACTORY : AddressesSepolia.ADDR_UNISWAPV3_FACTORY
+                uniswapFactory
             )
         );
         console.log("Assistant deployed at: ", assistant);
