@@ -11,10 +11,10 @@ import {AddressesHyperEVMTest} from "core/libraries/AddressesHyperEVMTest.sol";
 /**
  * @dev cli for HyperEVM testnet with big blocks:
  *     BB_GAS=$(cast rpc --rpc-url hypertest eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
- *     forge script script/DeployAssistant.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --slow
+ *     forge script script/DeployAssistant.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --priority-gas-price 1000000 --slow
  * @dev cli for HyperEVM mainnet with big blocks:
  *     BB_GAS=$(cast rpc --rpc-url hyperevm eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
- *     forge script script/DeployAssistant.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --slow
+ *     forge script script/DeployAssistant.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --priority-gas-price 1000000 --slow
  */
 contract DeployAssistant is Script {
     IVault public vault;

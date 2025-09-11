@@ -45,13 +45,13 @@ contract AssistantTest is Test {
     uint256 constant SLOT_RESERVES_TOTAL = 10;
 
     IWETH9 private constant WHYPE = IWETH9(AddressesHyperEVM.ADDR_WHYPE);
-    IERC20 private constant USDT = IERC20(AddressesHyperEVM.ADDR_USDT0);
+    IERC20 private constant USDT0 = IERC20(AddressesHyperEVM.ADDR_USDT0);
 
     Vault vault;
     Assistant assistant;
 
-    uint96 constant HYPE_SUPPLY = 120e6 * 10 ** 18;
-    uint256 constant USDT_SUPPLY = 100e9 * 10 ** 6;
+    uint96 constant HYPE_SUPPLY = 1e9 * 10 ** 18;
+    uint256 constant USDT0_SUPPLY = 100e9 * 10 ** 6;
 
     SirStructs.VaultParameters vaultParams =
         SirStructs.VaultParameters({
@@ -91,8 +91,6 @@ contract AssistantTest is Test {
 
         // Deploy Assistant
         assistant = new Assistant(address(vault), oracle, AddressesHyperEVM.ADDR_UNISWAPV3_FACTORY);
-
-        console.log("there");
 
         // Approve Assistant to spend WHYPE
         WHYPE.approve(address(vault), type(uint256).max);
@@ -261,13 +259,13 @@ contract AssistantTest is Test {
         // Initialize vault
         _initializeVault(leverageTier);
 
-        // Bound USDT amounts
-        usdtMinted = uint144(_bound(usdtMinted, 0, USDT_SUPPLY / 10000)); // Swapping too large amounts will cost a lot of gas in Uniswap v3 because of all the ticks crossed
+        // Bound USDT0 amounts
+        usdtMinted = uint144(_bound(usdtMinted, 0, USDT0_SUPPLY / 10000)); // Swapping too large amounts will cost a lot of gas in Uniswap v3 because of all the ticks crossed
         usdtDeposited = uint144(_bound(usdtDeposited, 0, usdtMinted)); // Minimum amount that must be deposited is
 
-        // Approve assistant to spend USDT
+        // Approve assistant to spend USDT0
         vm.prank(user);
-        USDT.forceApprove(address(vault), usdtDeposited);
+        USDT0.forceApprove(address(vault), usdtDeposited);
 
         // Mint TEA or APE and test it against quoteMint
         bool mintMustRevert;
@@ -289,9 +287,9 @@ contract AssistantTest is Test {
         }
         // vm.writeLine("./test.log", "--------------------------------");
 
-        // Deal USDT
+        // Deal USDT0
         vm.assume(user != address(0));
-        deal(address(USDT), user, usdtDeposited);
+        deal(address(USDT0), user, usdtDeposited);
 
         vm.prank(user);
         if (mintMustRevert) {
@@ -446,13 +444,13 @@ contract AssistantTest is Test {
         // Initialize vault state
         _initializeState(vaultParams.leverageTier, state);
 
-        // Bound USDT amounts
-        usdtMinted = uint144(_bound(usdtMinted, 0, USDT_SUPPLY / 10000)); // Swapping too large amounts will cost a lot of gas in Uniswap v3 because of all the ticks crossed
+        // Bound USDT0 amounts
+        usdtMinted = uint144(_bound(usdtMinted, 0, USDT0_SUPPLY / 10000)); // Swapping too large amounts will cost a lot of gas in Uniswap v3 because of all the ticks crossed
         usdtDeposited = uint144(_bound(usdtDeposited, 0, usdtMinted)); // Minimum amount that must be deposited is
 
-        // Approve assistant to spend USDT
+        // Approve assistant to spend USDT0
         vm.prank(user);
-        USDT.forceApprove(address(vault), usdtDeposited);
+        USDT0.forceApprove(address(vault), usdtDeposited);
 
         // Mint TEA or APE and test it against quoteMint
         bool mintMustRevert;
@@ -474,9 +472,9 @@ contract AssistantTest is Test {
         }
         // vm.writeLine("./test.log", "--------------------------------");
 
-        // Deal USDT
+        // Deal USDT0
         vm.assume(user != address(0));
-        deal(address(USDT), user, usdtDeposited);
+        deal(address(USDT0), user, usdtDeposited);
 
         vm.prank(user);
         if (mintMustRevert) {
@@ -558,8 +556,8 @@ contract AssistantTest is Test {
             1 ether
         );
 
-        // Price of 1 ether at April 15, 2024 was 3,080 USDT approximately
-        assertApproxEqAbs(amountDebtToken, 3_080e6, 1e6); // 1 USDT as margin of error
+        // Price of 1 hype at September 11, 2025 was 54 USDT approximately
+        assertApproxEqAbs(amountDebtToken, 54e6, 1e6); // 1 USDT0 as margin of error
     }
 
     ////////////////////////////////////////////////////////////////////////

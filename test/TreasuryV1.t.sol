@@ -23,7 +23,7 @@ contract TreasuryV1Test is Test {
     error InvalidInitialization();
     error OwnableUnauthorizedAccount(address account);
 
-    address public proxy;
+    address public proxy = 0x686748764c5C7Aa06FEc784E60D14b650bF79129;
     address payable sir;
 
     function setUp() public {
@@ -35,11 +35,10 @@ contract TreasuryV1Test is Test {
         TreasuryV1 treasuryImplementation = new TreasuryV1();
 
         // Deploy treasury proxy and initialize owner
-        proxy = address(
-            new ERC1967Proxy(
-                address(treasuryImplementation),
-                abi.encodeWithSelector(TreasuryV1.initialize.selector)
-            )
+        deployCodeTo(
+            "ERC1967Proxy.sol",
+            abi.encode(address(treasuryImplementation), abi.encodeWithSelector(TreasuryV1.initialize.selector)),
+            proxy
         );
 
         // --------------------- Core ---------------------
