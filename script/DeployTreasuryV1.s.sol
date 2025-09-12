@@ -9,10 +9,10 @@ import "forge-std/Script.sol";
 
 /// @dev cli for HyperEVM testnet with big blocks:
 ///     BB_GAS=$(cast rpc --rpc-url hypertest eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
-///     forge script script/DeployTreasuryV1.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --slow
+///     forge script script/DeployTreasuryV1.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths HD_PATH --with-gas-price $BB_GAS --verify --slow
 /// @dev cli for HyperEVM mainnet with big blocks:
 ///     BB_GAS=$(cast rpc --rpc-url hyperevm eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
-///     forge script script/DeployTreasuryV1.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --slow
+///     forge script script/DeployTreasuryV1.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths HD_PATH --with-gas-price $BB_GAS --verify --slow -verifier etherscan --etherscan-api-key APY_KEY
 contract DeployTreasuryV1 is Script {
     function setUp() public {
         if (block.chainid != 998 && block.chainid != 999) {

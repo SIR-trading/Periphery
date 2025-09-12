@@ -5,7 +5,16 @@
       "Bash(forge test:*)",
       "Bash(git checkout:*)",
       "Bash(forge compile:*)",
-      "Bash(forge build:*)"
+      "Bash(forge build:*)",
+      "Bash(forge verify-contract:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(if [ -d callback ])",
+      "Bash(then mv callback/*.sol .)",
+      "Bash(fi)",
+      "Bash(grep:*)",
+      "Bash(forge clean:*)",
+      "Bash(cast abi-encode:*)"
     ],
     "deny": [],
     "ask": []

@@ -15,8 +15,6 @@ import {IERC20} from "core/interfaces/IWETH9.sol";
 import {UniswapPoolAddress} from "core/libraries/UniswapPoolAddress.sol";
 import {AddressClone} from "core/libraries/AddressClone.sol";
 
-import "forge-std/console.sol";
-
 /**
  * @notice Helper functions for SIR protocol
  */
@@ -43,7 +41,7 @@ contract Assistant {
         SIR_ORACLE = IOracle(oracle);
         UNISWAPV3_FACTORY = uniswapV3Factory;
 
-        if (block.chainid == 999) UNISWAPV3_QUOTER = IQuoter(0x9AAe3e0AB52252c4cB1fdE92F7Ee6c490A2df0A5);
+        if (block.chainid == 999) UNISWAPV3_QUOTER = IQuoter(0xe57Aff86A500849F66BaA948C6C69c2A5E9951dF);
         else if (block.chainid == 998) UNISWAPV3_QUOTER = IQuoter(0x7F3856d63E74516EF142A51c7445fBBc373fed5a);
         else revert("Network not supported. Use chain 998 (testnet) or 999 (mainnet)");
     }

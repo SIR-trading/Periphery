@@ -16,11 +16,10 @@ import "forge-std/Script.sol";
 
 /// @dev cli for HyperEVM testnet with big blocks:
 ///     BB_GAS=$(cast rpc --rpc-url hypertest eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
-///     forge script script/TreasuryMint.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --slow
+///     forge script script/TreasuryMint.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths HD_PATH --with-gas-price $BB_GAS --slow
 /// @dev cli for HyperEVM mainnet with big blocks:
 ///     BB_GAS=$(cast rpc --rpc-url hyperevm eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
-///     forge script script/TreasuryMint.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths "m/44'/60'/0'/0/0" --with-gas-price $BB_GAS --slow
-contract TreasuryMint is Script {
+///     forge script script/TreasuryMint.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths HD_PATH --with-gas-price $BB_GAS --slow
     IVault vault;
     address sir;
     TreasuryV1 treasury;
@@ -29,7 +28,7 @@ contract TreasuryMint is Script {
         if (block.chainid != 998 && block.chainid != 999) {
             revert("Network not supported. Use chain 998 (testnet) or 999 (mainnet)");
         }
-        
+
         vault = IVault(vm.envAddress("VAULT"));
         sir = vault.SIR();
         treasury = TreasuryV1(vm.envAddress("TREASURY"));
@@ -47,7 +46,7 @@ contract TreasuryMint is Script {
         // Mint SIR tokens through treasury's relayCall
         console.log("Calling contributorMint through treasury...");
         bytes memory result = treasury.relayCall(sir, abi.encodeWithSelector(ISIR.contributorMint.selector));
-        
+
         // Decode the returned uint256 value
         uint256 rewards = abi.decode(result, (uint256));
         console.log("Minted SIR rewards:", rewards);
