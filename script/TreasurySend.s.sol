@@ -12,10 +12,10 @@ import "forge-std/Script.sol";
 
 /// @dev cli for HyperEVM testnet with big blocks:
 ///     BB_GAS=$(cast rpc --rpc-url hypertest eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
-///     forge script script/TreasurySend.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths HD_PATH --with-gas-price $BB_GAS --verify --slow
+///     forge script script/TreasurySend.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths HD_PATH --with-gas-price $BB_GAS --slow
 /// @dev cli for HyperEVM mainnet with big blocks:
 ///     BB_GAS=$(cast rpc --rpc-url hyperevm eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
-///     forge script script/TreasurySend.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths HD_PATH --with-gas-price $BB_GAS --verify --slow
+///     forge script script/TreasurySend.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths HD_PATH --with-gas-price $BB_GAS --slow
 contract TreasurySend is Script {
     IVault vault;
     address sir;

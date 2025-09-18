@@ -20,6 +20,7 @@ import "forge-std/Script.sol";
 /// @dev cli for HyperEVM mainnet with big blocks:
 ///     BB_GAS=$(cast rpc --rpc-url hyperevm eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
 ///     forge script script/TreasuryMint.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths HD_PATH --with-gas-price $BB_GAS --slow
+contract TreasuryMint is Script {
     IVault vault;
     address sir;
     TreasuryV1 treasury;
