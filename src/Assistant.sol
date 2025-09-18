@@ -238,7 +238,7 @@ contract Assistant {
         bool isAPE,
         SirStructs.VaultParameters calldata vaultParams,
         uint256 amountDebtToken
-    ) external view returns (uint256 amountTokens, uint256 amountCollateral) {
+    ) external view returns (uint256 amountTokens, uint256 amountCollateral, uint256 amountCollateralIdeal) {
         if (amountDebtToken == 0) revert AmountTooLow();
 
         // Get fee tier
@@ -257,6 +257,27 @@ contract Assistant {
 
         // Check that amountCollateral does not overflow
         if (amountCollateral > type(uint144).max) revert TooMuchCollateral();
+
+        // Calculate ideal collateral amount using instant pool price (no slippage)
+        // Get Uniswap pool
+        address uniswapPool = SIR_ORACLE.uniswapFeeTierAddressOf(vaultParams.debtToken, vaultParams.collateralToken);
+
+        // Get current price
+        (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(uniswapPool).slot0();
+
+        // Calculate price fraction with better precision if it doesn't overflow when multiplied by itself
+        bool inverse = vaultParams.collateralToken == IUniswapV3Pool(uniswapPool).token1();
+        if (sqrtPriceX96 <= type(uint128).max) {
+            uint256 priceX192 = uint256(sqrtPriceX96) * sqrtPriceX96;
+            amountCollateralIdeal = inverse
+                ? FullMath.mulDiv(1 << 192, amountDebtToken, priceX192)
+                : FullMath.mulDiv(priceX192, amountDebtToken, 1 << 192);
+        } else {
+            uint256 priceX128 = FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, 1 << 64);
+            amountCollateralIdeal = inverse
+                ? FullMath.mulDiv(1 << 128, amountDebtToken, priceX128)
+                : FullMath.mulDiv(priceX128, amountDebtToken, 1 << 128);
+        }
 
         // Given that we know how much collateral we will get from Uniswap, we can now use the quoteMint function
         amountTokens = quoteMint(isAPE, vaultParams, uint144(amountCollateral));

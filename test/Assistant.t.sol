@@ -273,13 +273,29 @@ contract AssistantTest is Test {
         bool mintMustRevert;
         uint256 amountTokens;
         uint256 amountCollateral;
+        uint256 amountCollateralIdeal;
         // vm.writeLine("./test.log", string.concat("quoteMint with ", vm.toString(usdtDeposited)));
         try
             // Quote mint
             assistant.quoteMintWithDebtToken(isAPE, vaultParams, usdtDeposited)
-        returns (uint256 amountTokens_, uint256 amountCollateral_) {
+        returns (uint256 amountTokens_, uint256 amountCollateral_, uint256 amountCollateralIdeal_) {
             amountTokens = amountTokens_;
             amountCollateral = amountCollateral_;
+            amountCollateralIdeal = amountCollateralIdeal_;
+
+            // Test that ideal amount is greater or equal to actual amount (due to slippage)
+            assertGe(amountCollateralIdeal, amountCollateral, "Ideal should be >= actual due to slippage");
+
+            // For small amounts (< 100 USDT), check that ideal and actual are close
+            if (usdtDeposited < 100e6 && usdtDeposited > 0) {
+                // Calculate percentage difference: (ideal - actual) / ideal * 100
+                uint256 percentDiff = amountCollateralIdeal > 0
+                    ? ((amountCollateralIdeal - amountCollateral) * 10000) / amountCollateralIdeal
+                    : 0;
+                // Assert less than 1% difference for small amounts
+                assertLt(percentDiff, 100, "Small amounts should have < 1% slippage");
+            }
+
             amountCollateralMin = uint144(_bound(amountCollateralMin, 1, amountCollateral));
             mintMustRevert = false;
             // vm.writeLine("./test.log", string.concat("quoteMint returned ", vm.toString(amountTokens)));
@@ -458,13 +474,29 @@ contract AssistantTest is Test {
         bool mintMustRevert;
         uint256 amountTokens;
         uint256 amountCollateral;
+        uint256 amountCollateralIdeal;
         // vm.writeLine("./test.log", string.concat("quoteMint with ", vm.toString(usdtDeposited)));
         try
             // Quote mint
             assistant.quoteMintWithDebtToken(isAPE, vaultParams, usdtDeposited)
-        returns (uint256 amountTokens_, uint256 amountCollateral_) {
+        returns (uint256 amountTokens_, uint256 amountCollateral_, uint256 amountCollateralIdeal_) {
             amountTokens = amountTokens_;
             amountCollateral = amountCollateral_;
+            amountCollateralIdeal = amountCollateralIdeal_;
+
+            // Test that ideal amount is greater or equal to actual amount (due to slippage)
+            assertGe(amountCollateralIdeal, amountCollateral, "Ideal should be >= actual due to slippage");
+
+            // For small amounts (< 100 USDT), check that ideal and actual are close
+            if (usdtDeposited < 100e6 && usdtDeposited > 0) {
+                // Calculate percentage difference: (ideal - actual) / ideal * 100
+                uint256 percentDiff = amountCollateralIdeal > 0
+                    ? ((amountCollateralIdeal - amountCollateral) * 10000) / amountCollateralIdeal
+                    : 0;
+                // Assert less than 1% difference for small amounts
+                assertLt(percentDiff, 100, "Small amounts should have < 1% slippage");
+            }
+
             amountCollateralMin = uint144(_bound(amountCollateralMin, 1, amountCollateral));
             mintMustRevert = false;
             // vm.writeLine("./test.log", string.concat("quoteMint returned ", vm.toString(amountTokens)));
