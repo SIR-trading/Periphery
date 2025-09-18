@@ -40,13 +40,12 @@ contract QuoteVault is Script {
         console.log("Uniswap fee tier: ", feeTier);
 
         // Quote vault id 1
-        (uint256 amountTokens, uint256 amountCollateral) = assistant.quoteMintWithDebtToken(
-            false,
-            vaultParams,
-            995896400000000000000
-        );
+        (uint256 amountTokens, uint256 amountCollateral, uint256 amountCollateralIdeal) = assistant
+            .quoteMintWithDebtToken(false, vaultParams, 995896400000000000000);
+
         console.log("Minting expects: ", amountTokens);
         console.log("Uniswap swap returns: ", amountCollateral);
+        console.log("Uniswap swap would return without slippage: ", amountCollateralIdeal);
 
         vm.stopBroadcast();
     }
