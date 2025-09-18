@@ -365,14 +365,18 @@ contract Assistant {
         SirStructs.VaultParameters calldata vaultParams,
         uint24 feeTier
     ) private view returns (bool) {
-        return
-            UniswapPoolAddress
-                .computeAddress(
-                    UNISWAPV3_FACTORY,
-                    UniswapPoolAddress.getPoolKey(vaultParams.collateralToken, vaultParams.debtToken, feeTier)
-                )
-                .code
-                .length != 0;
+        address poolAddress = UniswapPoolAddress.computeAddress(
+            UNISWAPV3_FACTORY,
+            UniswapPoolAddress.getPoolKey(vaultParams.collateralToken, vaultParams.debtToken, feeTier)
+        );
+
+        // Check if pool exists
+        if (poolAddress.code.length == 0) {
+            return false;
+        }
+
+        // Check if pool has liquidity
+        return IUniswapV3Pool(poolAddress).liquidity() > 0;
     }
 
     function _amountFirstMint(address collateral, uint144 collateralDeposited) private view returns (uint256 amount) {

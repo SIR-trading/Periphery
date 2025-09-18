@@ -132,6 +132,15 @@ contract AssistantTest is Test {
         assertEq(vaultStatus, uint256(VaultStatus.InvalidVault));
     }
 
+    function test_getVaultWithNoLiquidityPool() public {
+        // Test with WHYPE and weETH - pool exists but has no liquidity
+        vaultParams.collateralToken = AddressesHyperEVM.ADDR_WHYPE;
+        vaultParams.debtToken = 0xA3D68b74bF0528fdD07263c60d6488749044914b; // weETH
+
+        uint256 vaultStatus = uint256(assistant.getVaultStatus(vaultParams));
+        assertEq(vaultStatus, uint256(VaultStatus.NoUniswapPool));
+    }
+
     /** @dev Important to run first quoteMint before mint changes the state of the Vault
      */
     function testFuzz_mintFirstTime(

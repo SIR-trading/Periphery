@@ -6,7 +6,10 @@ import {SirStructs} from "core/libraries/SirStructs.sol";
 /** @notice Helper functions for SIR protocol
  */
 interface IAssistant {
-    error VaultCanBeCreated();
+    error VaultDoesNotExist();
+    error AmountTooLow();
+    error TooMuchCollateral();
+    error TEAMaxSupplyExceeded();
 
     enum VaultStatus {
         InvalidVault,
