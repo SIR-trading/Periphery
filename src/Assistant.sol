@@ -270,13 +270,13 @@ contract Assistant {
         if (sqrtPriceX96 <= type(uint128).max) {
             uint256 priceX192 = uint256(sqrtPriceX96) * sqrtPriceX96;
             amountCollateralIdeal = inverse
-                ? FullMath.mulDiv(1 << 192, amountDebtToken, priceX192)
-                : FullMath.mulDiv(priceX192, amountDebtToken, 1 << 192);
+                ? FullMath.mulDiv(priceX192, amountDebtToken, 1 << 192)
+                : FullMath.mulDiv(1 << 192, amountDebtToken, priceX192);
         } else {
             uint256 priceX128 = FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, 1 << 64);
             amountCollateralIdeal = inverse
-                ? FullMath.mulDiv(1 << 128, amountDebtToken, priceX128)
-                : FullMath.mulDiv(priceX128, amountDebtToken, 1 << 128);
+                ? FullMath.mulDiv(priceX128, amountDebtToken, 1 << 128)
+                : FullMath.mulDiv(1 << 128, amountDebtToken, priceX128);
         }
 
         // Given that we know how much collateral we will get from Uniswap, we can now use the quoteMint function

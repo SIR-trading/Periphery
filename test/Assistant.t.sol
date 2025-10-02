@@ -286,14 +286,15 @@ contract AssistantTest is Test {
             // Test that ideal amount is greater or equal to actual amount (due to slippage)
             assertGe(amountCollateralIdeal, amountCollateral, "Ideal should be >= actual due to slippage");
 
-            // For small amounts (< 100 USDT), check that ideal and actual are close
-            if (usdtDeposited < 100e6 && usdtDeposited > 0) {
+            // For reasonable amounts (1-100 USDT), check that ideal and actual are close
+            // Skip slippage check for dust amounts (< 1 USDT) where high slippage is expected
+            if (usdtDeposited >= 1e6 && usdtDeposited < 100e6) {
                 // Calculate percentage difference: (ideal - actual) / ideal * 100
                 uint256 percentDiff = amountCollateralIdeal > 0
                     ? ((amountCollateralIdeal - amountCollateral) * 10000) / amountCollateralIdeal
                     : 0;
-                // Assert less than 1% difference for small amounts
-                assertLt(percentDiff, 100, "Small amounts should have < 1% slippage");
+                // Assert less than 1% difference for reasonable small amounts
+                assertLt(percentDiff, 100, "Small amounts (1-100 USDT) should have < 1% slippage");
             }
 
             amountCollateralMin = uint144(_bound(amountCollateralMin, 1, amountCollateral));
@@ -487,14 +488,15 @@ contract AssistantTest is Test {
             // Test that ideal amount is greater or equal to actual amount (due to slippage)
             assertGe(amountCollateralIdeal, amountCollateral, "Ideal should be >= actual due to slippage");
 
-            // For small amounts (< 100 USDT), check that ideal and actual are close
-            if (usdtDeposited < 100e6 && usdtDeposited > 0) {
+            // For reasonable amounts (1-100 USDT), check that ideal and actual are close
+            // Skip slippage check for dust amounts (< 1 USDT) where high slippage is expected
+            if (usdtDeposited >= 1e6 && usdtDeposited < 100e6) {
                 // Calculate percentage difference: (ideal - actual) / ideal * 100
                 uint256 percentDiff = amountCollateralIdeal > 0
                     ? ((amountCollateralIdeal - amountCollateral) * 10000) / amountCollateralIdeal
                     : 0;
-                // Assert less than 1% difference for small amounts
-                assertLt(percentDiff, 100, "Small amounts should have < 1% slippage");
+                // Assert less than 1% difference for reasonable small amounts
+                assertLt(percentDiff, 100, "Small amounts (1-100 USDT) should have < 1% slippage");
             }
 
             amountCollateralMin = uint144(_bound(amountCollateralMin, 1, amountCollateral));
