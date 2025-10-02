@@ -264,7 +264,7 @@ contract Assistant {
         (uint160 sqrtPriceX96, , , , , , ) = IUniswapV3Pool(uniswapPool).slot0();
 
         // Calculate price fraction with better precision if it doesn't overflow when multiplied by itself
-        bool inverse = vaultParams.collateralToken == IUniswapV3Pool(uniswapPool).token1();
+        bool inverse = vaultParams.collateralToken == IUniswapV3Pool(uniswapPool).token0();
         if (sqrtPriceX96 <= type(uint128).max) {
             uint256 priceX192 = uint256(sqrtPriceX96) * sqrtPriceX96;
             amountCollateralIdeal = inverse

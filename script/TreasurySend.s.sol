@@ -22,8 +22,8 @@ contract TreasurySend is Script {
     TreasuryV1 treasury;
 
     // Constants for transfer
-    address constant RECIPIENT = 0x5000Ff6Cc1864690d947B864B9FB0d603E8d1F1A;
-    uint256 constant AMOUNT = 6.8e6 * 1e12;
+    address constant RECIPIENT = 0x8851A0af3a12121E335761Fe7B6Aa58198C12751;
+    uint256 constant AMOUNT = 5e6 * 1e12;
 
     function setUp() public {
         if (block.chainid != 998 && block.chainid != 999) {
