@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(find:*)",
-      "Bash(forge test:*)"
+      "Bash(forge test:*)",
+      "Bash(echo $ALCHEMY_KEY)"
     ],
     "deny": [],
     "ask": []
