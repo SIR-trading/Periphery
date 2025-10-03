@@ -3,7 +3,8 @@
     "allow": [
       "Bash(find:*)",
       "Bash(forge test:*)",
-      "Bash(echo $ALCHEMY_KEY)"
+      "Bash(echo $ALCHEMY_KEY)",
+      "Bash(forge build:*)"
     ],
     "deny": [],
     "ask": []

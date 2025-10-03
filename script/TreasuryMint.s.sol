@@ -14,12 +14,11 @@ import {TreasuryV1} from "src/TreasuryV1.sol";
 
 import "forge-std/Script.sol";
 
-/// @dev cli for mainnet:  forge script script/TreasuryMint.s.sol --rpc-url mainnet --chain 1 --broadcast --verify --ledger --hd-paths HD_PATH
+/// @dev cli for mainnet:  forge script script/TreasuryMint.s.sol --rpc-url mainnet --chain 1 --broadcast --ledger --hd-paths HD_PATH
 /// @dev cli for Sepolia:  forge script script/TreasuryMint.s.sol --rpc-url sepolia --chain sepolia --broadcast
 contract TreasuryMint is Script {
     uint256 privateKey;
 
-    IVault vault;
     address sir;
     TreasuryV1 treasury;
 
@@ -30,7 +29,7 @@ contract TreasuryMint is Script {
             revert("Network not supported");
         }
 
-        vault = IVault(vm.envAddress("VAULT"));
+        IVault vault = IVault(vm.envAddress("VAULT"));
         sir = vault.SIR();
         treasury = TreasuryV1(vm.envAddress("TREASURY"));
     }
@@ -48,15 +47,15 @@ contract TreasuryMint is Script {
         // Mint SIR tokens through treasury's relayCall
         console.log("Calling contributorMint through treasury...");
         bytes memory result = treasury.relayCall(sir, abi.encodeWithSelector(ISIR.contributorMint.selector));
-        
+
         // Decode the returned uint256 value
         uint256 rewards = abi.decode(result, (uint256));
-        console.log("Minted SIR rewards:", rewards);
+        console.log("Minted SIR rewards:", rewards / 1e12);
 
         // Log final balance
         uint256 treasuryBalanceAfter = IERC20(sir).balanceOf(address(treasury));
-        console.log("Treasury SIR balance after mint:", treasuryBalanceAfter);
-        console.log("SIR tokens minted:", treasuryBalanceAfter - treasuryBalanceBefore);
+        console.log("Treasury SIR balance after mint:", treasuryBalanceAfter / 1e12);
+        console.log("SIR tokens minted:", (treasuryBalanceAfter - treasuryBalanceBefore) / 1e12);
 
         vm.stopBroadcast();
     }

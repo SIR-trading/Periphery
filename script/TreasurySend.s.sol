@@ -10,8 +10,8 @@ import {TreasuryV1} from "src/TreasuryV1.sol";
 
 import "forge-std/Script.sol";
 
-/// @dev cli for mainnet:  forge script script/TreasurySend.s.sol --rpc-url mainnet --chain 1 --broadcast --verify --ledger --hd-paths HD_PATH -vvvv
-/// @dev cli for Sepolia:  forge script script/TreasurySend.s.sol --rpc-url sepolia --chain sepolia --broadcast -vvvv
+/// @dev cli for mainnet:  forge script script/TreasurySend.s.sol --rpc-url mainnet --chain 1 --broadcast --ledger --hd-paths HD_PATH
+/// @dev cli for Sepolia:  forge script script/TreasurySend.s.sol --rpc-url sepolia --chain sepolia --broadcast
 contract TreasurySend is Script {
     uint256 privateKey;
 
@@ -20,7 +20,7 @@ contract TreasurySend is Script {
     TreasuryV1 treasury;
 
     // Constants for transfer
-    address constant RECIPIENT = address(0xAA7A9d80971E58641442774C373C94AaFee87d66);
+    address constant RECIPIENT = address(0xeeFbdAe2b62F9A1639bCBa81A7E76e84B2C6813B);
     uint256 constant AMOUNT = 2e6 * 1e12;
 
     function setUp() public {

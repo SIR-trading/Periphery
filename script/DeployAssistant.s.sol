@@ -9,7 +9,7 @@ import {Addresses} from "core/libraries/Addresses.sol";
 import {AddressesSepolia} from "core/libraries/AddressesSepolia.sol";
 
 /**
- * @dev cli for local testnet:  forge script script/DeployAssistant.s.sol --rpc-url mainnet --chain 1 --broadcast --verify --ledger --hd-paths PATHS --etherscan-api-key YOUR_KEY
+ * @dev cli for local testnet:  forge script script/DeployAssistant.s.sol --rpc-url mainnet --chain 1 --broadcast --slow --verify --ledger --hd-paths PATHS --etherscan-api-key YOUR_KEY
  * @dev cli for Sepolia:        forge script script/DeployAssistant.s.sol --rpc-url sepolia --chain sepolia --broadcast
  */
 contract DeployAssistant is Script {
