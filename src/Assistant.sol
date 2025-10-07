@@ -14,6 +14,7 @@ import {FullMath} from "core/libraries/FullMath.sol";
 import {IERC20} from "core/interfaces/IWETH9.sol";
 import {UniswapPoolAddress} from "core/libraries/UniswapPoolAddress.sol";
 import {AddressClone} from "core/libraries/AddressClone.sol";
+import {TickMath} from "v3-core/libraries/TickMath.sol";
 
 /**
  * @notice Helper functions for SIR protocol
@@ -312,12 +313,13 @@ contract Assistant {
     /**
      * @notice If quoteBurn reverts, burn in Vault.sol will revert as well; vice versa is not necessarily true.
      * @return amountCollateral that would be obtained by burning amountTokens.
+     * @return amountDebtToken the equivalent amount in debt token using Oracle TWAP price.
      */
     function quoteBurn(
         bool isAPE,
         SirStructs.VaultParameters calldata vaultParams,
         uint256 amountTokens
-    ) external view returns (uint144 amountCollateral) {
+    ) external view returns (uint144 amountCollateral, uint256 amountDebtToken) {
         // Get vault state
         SirStructs.VaultState memory vaultState = VAULT.vaultStates(vaultParams);
         if (vaultState.vaultId == 0) revert VaultDoesNotExist();
@@ -345,6 +347,123 @@ contract Assistant {
 
             // Get amount of collateral that would be withdrawn
             amountCollateral = uint144(FullMath.mulDiv(reserves.reserveLPers, amountTokens, supplyTEA));
+        }
+
+        // Convert collateral amount to debt token amount using Oracle TWAP
+        amountDebtToken = _convertCollateralToDebtTokenUsingTWAP(
+            vaultParams.collateralToken,
+            vaultParams.debtToken,
+            amountCollateral
+        );
+    }
+
+    /**
+     * @notice Converts collateral amount to debt token amount using the Oracle's TWAP price.
+     * @dev This uses the same TWAP price calculation as the Oracle contract for consistency.
+     * @param collateralToken The collateral token address.
+     * @param debtToken The debt token address.
+     * @param amountCollateral The amount of collateral to convert.
+     * @return amountDebtToken The equivalent amount in debt tokens.
+     */
+    function _convertCollateralToDebtTokenUsingTWAP(
+        address collateralToken,
+        address debtToken,
+        uint256 amountCollateral
+    ) private view returns (uint256 amountDebtToken) {
+        // Get the pool address from Oracle
+        address poolAddress = SIR_ORACLE.uniswapFeeTierAddressOf(collateralToken, debtToken);
+
+        IUniswapV3Pool pool = IUniswapV3Pool(poolAddress);
+
+        // Get TWAP observation data similar to Oracle
+        uint32[] memory secondsAgos = new uint32[](2);
+        secondsAgos[0] = 1800; // 30 minutes (TWAP_DURATION from Oracle)
+        secondsAgos[1] = 0;
+
+        int56[] memory tickCumulatives;
+
+        try pool.observe(secondsAgos) returns (int56[] memory tickCumulatives_, uint160[] memory) {
+            tickCumulatives = tickCumulatives_;
+        } catch {
+            // If 30-minute TWAP not available, try to get the oldest available observation
+            // This mimics Oracle's fallback behavior
+            (, , uint16 observationIndex, uint16 observationCardinality, , , ) = pool.slot0();
+
+            if (observationCardinality > 1) {
+                // Get oldest observation
+                uint32 oldestObservationSeconds;
+                int56 oldestTickCumulative;
+                bool initialized;
+
+                // Try to get the oldest initialized observation
+                uint16 oldestIndex = (observationIndex + 1) % observationCardinality;
+                (oldestObservationSeconds, oldestTickCumulative, , initialized) = pool.observations(oldestIndex);
+
+                if (!initialized) {
+                    // Fallback to index 0 which is always initialized
+                    (oldestObservationSeconds, oldestTickCumulative, , ) = pool.observations(0);
+                }
+
+                // Calculate time difference
+                uint32 timeElapsed = uint32(block.timestamp) - oldestObservationSeconds;
+
+                if (timeElapsed > 0) {
+                    // Get current observation
+                    secondsAgos[0] = timeElapsed;
+                    tickCumulatives = new int56[](2);
+                    (tickCumulatives, ) = pool.observe(secondsAgos);
+                } else {
+                    // Use spot price if no TWAP available
+                    (, int24 currentTick, , , , , ) = pool.slot0();
+                    tickCumulatives = new int56[](2);
+                    tickCumulatives[0] = currentTick;
+                    tickCumulatives[1] = currentTick;
+                    secondsAgos[0] = 1; // Avoid division by zero
+                }
+            } else {
+                // Use spot price if cardinality is 1
+                (, int24 currentTick, , , , , ) = pool.slot0();
+                tickCumulatives = new int56[](2);
+                tickCumulatives[0] = currentTick;
+                tickCumulatives[1] = currentTick;
+                secondsAgos[0] = 1; // Avoid division by zero
+            }
+        }
+
+        // Calculate average tick over the period
+        int24 arithmeticMeanTick = int24((tickCumulatives[1] - tickCumulatives[0]) / int56(uint56(secondsAgos[0])));
+
+        // Convert tick to price
+        // The price is in terms of token1/token0 in the pool
+        bool collateralIsToken0 = collateralToken < debtToken;
+
+        // Calculate sqrt price from tick
+        uint160 sqrtPriceX96 = TickMath.getSqrtRatioAtTick(arithmeticMeanTick);
+
+        // Calculate the amount of debt tokens
+        // Price calculation depends on token order in the pool
+        if (collateralIsToken0) {
+            // collateral is token0, debt is token1
+            // Price is debt/collateral (token1/token0)
+            // amountDebtToken = amountCollateral * price
+            if (sqrtPriceX96 <= type(uint128).max) {
+                uint256 priceX192 = uint256(sqrtPriceX96) * sqrtPriceX96;
+                amountDebtToken = FullMath.mulDiv(amountCollateral, priceX192, 1 << 192);
+            } else {
+                uint256 priceX128 = FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, 1 << 64);
+                amountDebtToken = FullMath.mulDiv(amountCollateral, priceX128, 1 << 128);
+            }
+        } else {
+            // collateral is token1, debt is token0
+            // Price is still token1/token0, but we need debt/collateral
+            // So we need to invert: amountDebtToken = amountCollateral / price
+            if (sqrtPriceX96 <= type(uint128).max) {
+                uint256 priceX192 = uint256(sqrtPriceX96) * sqrtPriceX96;
+                amountDebtToken = FullMath.mulDiv(amountCollateral, 1 << 192, priceX192);
+            } else {
+                uint256 priceX128 = FullMath.mulDiv(sqrtPriceX96, sqrtPriceX96, 1 << 64);
+                amountDebtToken = FullMath.mulDiv(amountCollateral, 1 << 128, priceX128);
+            }
         }
     }
 

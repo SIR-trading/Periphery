@@ -556,11 +556,13 @@ contract AssistantTest is Test {
         // Burn TEA or APE and test it against quoteBurn
         bool burnMustRevert;
         uint144 amountCollateral;
+        uint256 amountDebtToken;
         try
             // Quote mint
             assistant.quoteBurn(isAPE, vaultParams, tokensBurnt)
-        returns (uint144 amountCollateral_) {
+        returns (uint144 amountCollateral_, uint256 amountDebtToken_) {
             amountCollateral = amountCollateral_;
+            amountDebtToken = amountDebtToken_;
             burnMustRevert = false;
         } catch {
             burnMustRevert = true;
@@ -582,6 +584,23 @@ contract AssistantTest is Test {
                     amountCollateral,
                     "burn and quoteBurn should return the same amount of collateral"
                 );
+
+                // Check that amountDebtToken from quoteBurn matches quoteCollateralToDebtToken
+                uint256 expectedDebtToken = assistant.quoteCollateralToDebtToken(
+                    vaultParams.debtToken,
+                    vaultParams.collateralToken,
+                    amountCollateral_
+                );
+
+                // Allow for small difference due to potential rounding or TWAP vs spot price
+                // Using 1% tolerance (1/100) for TWAP vs spot price difference
+                uint256 tolerance = expectedDebtToken / 100;
+                assertApproxEqAbs(
+                    amountDebtToken,
+                    expectedDebtToken,
+                    tolerance,
+                    "quoteBurn amountDebtToken should match quoteCollateralToDebtToken"
+                );
             } catch {
                 // Burn reverts contrary to quoteBurn
             }
@@ -601,6 +620,65 @@ contract AssistantTest is Test {
 
         // Price of 1 hype at September 11, 2025 was 54 USDT approximately
         assertApproxEqAbs(amountDebtToken, 54e6, 1e6); // 1 USDT0 as margin of error
+    }
+
+    function test_quoteBurnDebtTokenAmount() public {
+        // Initialize vault
+        _initializeVault(vaultParams.leverageTier);
+
+        // First mint some TEA and APE tokens to have non-zero supply
+        address user = address(0x1234);
+        _dealWETH(user, 20 ether);
+
+        vm.startPrank(user);
+        WETH.approve(address(vault), 20 ether);
+
+        // Mint TEA tokens
+        vault.mint(false, vaultParams, 10 ether, 0, 0);
+
+        // Mint APE tokens
+        vault.mint(true, vaultParams, 5 ether, 0, 0);
+        vm.stopPrank();
+
+        // Test TEA burn
+        uint256 teaBurnAmount = 100e18;
+        (uint144 teaCollateral, uint256 teaDebtToken) = assistant.quoteBurn(false, vaultParams, teaBurnAmount);
+
+        // Verify debt token amount matches quoteCollateralToDebtToken
+        uint256 expectedTeaDebtToken = assistant.quoteCollateralToDebtToken(
+            vaultParams.debtToken,
+            vaultParams.collateralToken,
+            teaCollateral
+        );
+
+        assertApproxEqRel(
+            teaDebtToken,
+            expectedTeaDebtToken,
+            0.01e18, // 1% tolerance for TWAP vs spot price difference
+            "TEA burn: amountDebtToken should match quoteCollateralToDebtToken"
+        );
+
+        // Test APE burn
+        uint256 apeBurnAmount = 200e18;
+        (uint144 apeCollateral, uint256 apeDebtToken) = assistant.quoteBurn(true, vaultParams, apeBurnAmount);
+
+        // Verify debt token amount matches quoteCollateralToDebtToken
+        uint256 expectedApeDebtToken = assistant.quoteCollateralToDebtToken(
+            vaultParams.debtToken,
+            vaultParams.collateralToken,
+            apeCollateral
+        );
+
+        assertApproxEqRel(
+            apeDebtToken,
+            expectedApeDebtToken,
+            0.01e18, // 1% tolerance for TWAP vs spot price difference
+            "APE burn: amountDebtToken should match quoteCollateralToDebtToken"
+        );
+
+        // Ensure the values are reasonable
+        assertGt(teaDebtToken, 0, "TEA debt token amount should be positive");
+        assertGt(apeDebtToken, 0, "APE debt token amount should be positive");
     }
 
     ////////////////////////////////////////////////////////////////////////
