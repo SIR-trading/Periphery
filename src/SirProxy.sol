@@ -34,7 +34,7 @@ contract SirProxy {
      * @notice Returns the name of the token
      * @return The name from the SIR token contract
      */
-    function name() external view returns (string memory) {
+    function name() external pure returns (string memory) {
         return "Proxy SIR for offchain operations";
     }
 
@@ -113,7 +113,7 @@ contract SirProxy {
             // Get TEA balance and calculate SIR equity
             uint256 teaBalance = VAULT.balanceOf(account, vaultId);
             if (teaBalance > 0) {
-                try ASSISTANT.quoteBurn(false, vaultParams, teaBalance) returns (uint144 collateralAmount) {
+                try ASSISTANT.quoteBurn(false, vaultParams, teaBalance) returns (uint144 collateralAmount, uint256) {
                     // Direct 1:1 since collateral is SIR
                     sirEquity += collateralAmount;
                 } catch {
@@ -125,7 +125,7 @@ contract SirProxy {
             address apeToken = AddressClone.getAddress(address(VAULT), vaultId);
             uint256 apeBalance = IERC20(apeToken).balanceOf(account);
             if (apeBalance > 0) {
-                try ASSISTANT.quoteBurn(true, vaultParams, apeBalance) returns (uint144 collateralAmount) {
+                try ASSISTANT.quoteBurn(true, vaultParams, apeBalance) returns (uint144 collateralAmount, uint256) {
                     // Direct 1:1 since collateral is SIR
                     sirEquity += collateralAmount;
                 } catch {

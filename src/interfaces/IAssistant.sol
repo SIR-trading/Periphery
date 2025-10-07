@@ -51,5 +51,5 @@ interface IAssistant {
         bool isAPE,
         SirStructs.VaultParameters calldata vaultParams,
         uint256 amountTokens
-    ) external view returns (uint144 amountCollateral);
+    ) external view returns (uint144 amountCollateral, uint256 amountDebtToken);
 }
