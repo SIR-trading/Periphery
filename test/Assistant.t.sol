@@ -628,10 +628,10 @@ contract AssistantTest is Test {
 
         // First mint some TEA and APE tokens to have non-zero supply
         address user = address(0x1234);
-        _dealWETH(user, 20 ether);
+        _dealWHYPE(user, 20 ether);
 
         vm.startPrank(user);
-        WETH.approve(address(vault), 20 ether);
+        WHYPE.approve(address(vault), 20 ether);
 
         // Mint TEA tokens
         vault.mint(false, vaultParams, 10 ether, 0, 0);

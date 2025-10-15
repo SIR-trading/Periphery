@@ -14,7 +14,9 @@
       "Bash(fi)",
       "Bash(grep:*)",
       "Bash(forge clean:*)",
-      "Bash(cast abi-encode:*)"
+      "Bash(cast abi-encode:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(cast abi-decode:*)"
     ],
     "deny": [],
     "ask": []
