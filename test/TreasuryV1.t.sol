@@ -23,7 +23,7 @@ contract TreasuryV1Test is Test {
     error InvalidInitialization();
     error OwnableUnauthorizedAccount(address account);
 
-    address public proxy = 0x686748764c5C7Aa06FEc784E60D14b650bF79129;
+    address public proxy = 0x1230000000000000000000000000000000000000;
     address payable sir;
 
     function setUp() public {

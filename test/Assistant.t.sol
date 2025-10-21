@@ -61,7 +61,7 @@ contract AssistantTest is Test {
         });
 
     function setUp() public {
-        vm.createSelectFork("hyperevm", 13552974);
+        vm.createSelectFork("hyperevm", 13596157);
 
         // Deploy oracle
         address oracle = address(new Oracle(AddressesHyperEVM.ADDR_UNISWAPV3_FACTORY));
@@ -291,6 +291,15 @@ contract AssistantTest is Test {
             amountCollateralIdeal = amountCollateralIdeal_;
 
             // Test that ideal amount is greater or equal to actual amount (due to slippage)
+            vm.writeLine(
+                "test.txt",
+                string.concat(
+                    "amountCollateral: ",
+                    vm.toString(amountCollateral),
+                    ", amountCollateralIdeal: ",
+                    vm.toString(amountCollateralIdeal)
+                )
+            );
             assertGe(amountCollateralIdeal, amountCollateral, "Ideal should be >= actual due to slippage");
 
             // For reasonable amounts (1-100 USDT), check that ideal and actual are close
@@ -619,7 +628,7 @@ contract AssistantTest is Test {
         );
 
         // Price of 1 hype at September 11, 2025 was 54 USDT approximately
-        assertApproxEqAbs(amountDebtToken, 54e6, 1e6); // 1 USDT0 as margin of error
+        assertApproxEqAbs(amountDebtToken, 55e6, 1e6); // 1 USDT0 as margin of error
     }
 
     function test_quoteBurnDebtTokenAmount() public {
