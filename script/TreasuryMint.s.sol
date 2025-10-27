@@ -14,12 +14,12 @@ import {TreasuryV1} from "src/TreasuryV1.sol";
 
 import "forge-std/Script.sol";
 
-/// @dev cli for HyperEVM testnet with big blocks:
-///     BB_GAS=$(cast rpc --rpc-url hypertest eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
-///     forge script script/TreasuryMint.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths HD_PATH --with-gas-price $BB_GAS --slow
-/// @dev cli for HyperEVM mainnet with big blocks:
-///     BB_GAS=$(cast rpc --rpc-url hyperevm eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
-///     forge script script/TreasuryMint.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths HD_PATH --with-gas-price $BB_GAS --slow
+/**
+    @dev cli for HyperEVM mainnet with big blocks:
+    forge script script/TreasuryMint.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths $HD_PATH  \
+        --with-gas-price 0.8gwei --priority-gas-price 0.1gwei
+*/
+
 contract TreasuryMint is Script {
     IVault vault;
     address sir;
