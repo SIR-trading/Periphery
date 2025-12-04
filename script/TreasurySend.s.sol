@@ -12,18 +12,17 @@ import "forge-std/Script.sol";
 
 /// @dev cli for HyperEVM testnet with big blocks:
 ///     BB_GAS=$(cast rpc --rpc-url hypertest eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
-///     forge script script/TreasurySend.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths HD_PATH --with-gas-price $BB_GAS --slow
+///     forge script script/TreasurySend.s.sol --rpc-url hypertest --chain 998 --broadcast --ledger --hd-paths $HD_PATH --with-gas-price $BB_GAS --slow
 /// @dev cli for HyperEVM mainnet with big blocks:
-///     BB_GAS=$(cast rpc --rpc-url hyperevm eth_bigBlockGasPrice | tr -d '"' | cast to-dec)
-///     forge script script/TreasurySend.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths HD_PATH --with-gas-price $BB_GAS --slow
+///     forge script script/TreasurySend.s.sol --rpc-url hyperevm --chain 999 --broadcast --ledger --hd-paths $HD_PATH --with-gas-price 0.8gwei --priority-gas-price 0.1gwei
 contract TreasurySend is Script {
     IVault vault;
     address sir;
     TreasuryV1 treasury;
 
     // Constants for transfer
-    address constant RECIPIENT = 0x8851A0af3a12121E335761Fe7B6Aa58198C12751;
-    uint256 constant AMOUNT = 5e6 * 1e12;
+    address constant RECIPIENT = 0x5000Ff6Cc1864690d947B864B9FB0d603E8d1F1A;
+    uint256 constant AMOUNT = 6953375386798941165;
 
     function setUp() public {
         if (block.chainid != 998 && block.chainid != 999) {

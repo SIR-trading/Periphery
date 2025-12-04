@@ -15,3 +15,6 @@
 	url = https://github.com/SIR-trading/Core
 [submodule "lib\\Core"]
 	branch = hyperEVM
+[submodule "lib/v3-staker"]
+	path = lib/v3-staker
+	url = https://github.com/Uniswap/v3-staker
