@@ -9,13 +9,11 @@ import {ERC1967Proxy} from "openzeppelin/proxy/ERC1967/ERC1967Proxy.sol";
 import {IVault} from "core/interfaces/IVault.sol";
 import {ISIR} from "core/interfaces/ISIR.sol";
 import {SirStructs} from "core/libraries/SirStructs.sol";
-import {Addresses} from "core/libraries/Addresses.sol";
 import {TreasuryV1} from "src/TreasuryV1.sol";
 
 import "forge-std/Script.sol";
 
-/// @dev cli for mainnet:  forge script script/TreasuryMint.s.sol --rpc-url mainnet --chain 1 --broadcast --ledger --hd-paths HD_PATH
-/// @dev cli for Sepolia:  forge script script/TreasuryMint.s.sol --rpc-url sepolia --chain sepolia --broadcast
+/// @dev cli for MegaETH testnet:  forge script script/TreasuryMint.s.sol --rpc-url megatest --chain 6343 --broadcast
 contract TreasuryMint is Script {
     uint256 privateKey;
 
@@ -23,9 +21,9 @@ contract TreasuryMint is Script {
     TreasuryV1 treasury;
 
     function setUp() public {
-        if (block.chainid == 11155111) {
-            privateKey = vm.envUint("SEPOLIA_DEPLOYER_PRIVATE_KEY");
-        } else if (block.chainid != 1) {
+        if (block.chainid == 6343) {
+            privateKey = vm.envUint("MEGAETH_DEPLOYER_PRIVATE_KEY");
+        } else if (block.chainid != 6342) {
             revert("Network not supported");
         }
 
@@ -35,7 +33,7 @@ contract TreasuryMint is Script {
     }
 
     function run() public {
-        if (block.chainid == 1) vm.startBroadcast();
+        if (block.chainid == 6342) vm.startBroadcast();
         else vm.startBroadcast(privateKey);
 
         // Log initial balances

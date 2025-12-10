@@ -4,7 +4,12 @@
       "Bash(find:*)",
       "Bash(forge test:*)",
       "Bash(echo $ALCHEMY_KEY)",
-      "Bash(forge build:*)"
+      "Bash(forge build:*)",
+      "Bash(git submodule:*)",
+      "Bash(git -C lib/Core fetch origin)",
+      "Bash(git -C lib/Core checkout megaeth)",
+      "Bash(cat:*)",
+      "Bash(forge script:*)"
     ],
     "deny": [],
     "ask": []

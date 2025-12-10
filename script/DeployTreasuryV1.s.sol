@@ -7,22 +7,12 @@ import {TreasuryV1} from "src/TreasuryV1.sol";
 
 import "forge-std/Script.sol";
 
-/// @dev cli for mainnet:  forge script script/DeployTreasuryV1.s.sol --rpc-url mainnet --chain 1 --broadcast --verify --ledger --hd-paths PATHS --etherscan-api-key YOUR_KEY
-/// @dev cli for Sepolia:  forge script script/DeployTreasuryV1.s.sol --rpc-url sepolia --chain sepolia --broadcast
+/// @dev cli for MegaETH testnet:  forge script script/DeployTreasuryV1.s.sol --rpc-url megatest --broadcast --private-key $PRIVATE_KEY -skip-simulation --gas-price 1000000 --gas-limit 2000000
 contract DeployTreasuryV1 is Script {
-    uint256 privateKey;
-
-    function setUp() public {
-        if (block.chainid == 11155111) {
-            privateKey = vm.envUint("SEPOLIA_DEPLOYER_PRIVATE_KEY");
-        } else if (block.chainid != 1) {
-            revert("Network not supported");
-        }
-    }
+    function setUp() public {}
 
     function run() public {
-        if (block.chainid == 1) vm.startBroadcast();
-        else vm.startBroadcast(privateKey);
+        vm.startBroadcast();
 
         // Deploy treasury implementation
         TreasuryV1 treasuryImplementation = new TreasuryV1();

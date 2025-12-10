@@ -5,12 +5,11 @@ import "forge-std/Script.sol";
 
 import {Assistant} from "src/Assistant.sol";
 import {IVault} from "core/interfaces/IVault.sol";
-import {Addresses} from "core/libraries/Addresses.sol";
-import {AddressesSepolia} from "core/libraries/AddressesSepolia.sol";
+import {AddressesMegaETH} from "core/libraries/AddressesMegaETH.sol";
+import {AddressesMegaETHTest} from "core/libraries/AddressesMegaETHTest.sol";
 
 /**
- * @dev cli for local testnet:  forge script script/DeployAssistant.s.sol --rpc-url mainnet --chain 1 --broadcast --slow --verify --ledger --hd-paths PATHS --etherscan-api-key YOUR_KEY
- * @dev cli for Sepolia:        forge script script/DeployAssistant.s.sol --rpc-url sepolia --chain sepolia --broadcast
+ * @dev cli for MegaETH testnet:  forge script script/DeployAssistant.s.sol --rpc-url megatest --chain 6343 --broadcast
  */
 contract DeployAssistant is Script {
     uint256 deployerPrivateKey;
@@ -19,9 +18,9 @@ contract DeployAssistant is Script {
     address public oracle;
 
     function setUp() public {
-        if (block.chainid == 11155111) {
-            deployerPrivateKey = vm.envUint("SEPOLIA_DEPLOYER_PRIVATE_KEY");
-        } else if (block.chainid != 1) {
+        if (block.chainid == 6343) {
+            deployerPrivateKey = vm.envUint("MEGAETH_DEPLOYER_PRIVATE_KEY");
+        } else if (block.chainid != 6342) {
             revert("Network not supported");
         }
 
@@ -30,7 +29,7 @@ contract DeployAssistant is Script {
     }
 
     function run() public {
-        if (block.chainid == 1) vm.startBroadcast();
+        if (block.chainid == 6342) vm.startBroadcast();
         else vm.startBroadcast(deployerPrivateKey);
 
         // Deploy assistant
@@ -38,7 +37,7 @@ contract DeployAssistant is Script {
             new Assistant(
                 address(vault),
                 oracle,
-                block.chainid == 1 ? Addresses.ADDR_UNISWAPV3_FACTORY : AddressesSepolia.ADDR_UNISWAPV3_FACTORY
+                block.chainid == 6342 ? AddressesMegaETH.ADDR_UNISWAPV3_FACTORY : AddressesMegaETHTest.ADDR_UNISWAPV3_FACTORY
             )
         );
         console.log("Assistant deployed at: ", assistant);

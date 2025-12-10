@@ -6,15 +6,17 @@ import "forge-std/Script.sol";
 
 import {Assistant} from "src/Assistant.sol";
 import {SirStructs} from "core/libraries/SirStructs.sol";
-import {Addresses} from "core/libraries/Addresses.sol";
+import {AddressesMegaETHTest} from "core/libraries/AddressesMegaETHTest.sol";
 
+/** @dev cli for MegaETH testnet:  forge script script/TestPeriphery.s.sol --rpc-url megatest --chain 6343 --broadcast
+*/
 contract TestPeriphery is Script {
     Assistant public assistant;
 
     SirStructs.VaultParameters public vaultParameters =
         SirStructs.VaultParameters({
-            debtToken: Addresses.ADDR_USDT,
-            collateralToken: Addresses.ADDR_WETH,
+            debtToken: AddressesMegaETHTest.ADDR_USDC,
+            collateralToken: AddressesMegaETHTest.ADDR_WETH,
             leverageTier: int8(-1)
         });
 
@@ -25,7 +27,7 @@ contract TestPeriphery is Script {
     }
 
     function run() public {
-        uint256 deployerPrivateKey = vm.envUint("TARP_TESTNET_PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("MEGAETH_DEPLOYER_PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
         console.log("Minting with", amountCollateral, "collateral");

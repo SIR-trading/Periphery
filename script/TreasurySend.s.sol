@@ -10,8 +10,7 @@ import {TreasuryV1} from "src/TreasuryV1.sol";
 
 import "forge-std/Script.sol";
 
-/// @dev cli for mainnet:  forge script script/TreasurySend.s.sol --rpc-url mainnet --chain 1 --broadcast --ledger --hd-paths HD_PATH
-/// @dev cli for Sepolia:  forge script script/TreasurySend.s.sol --rpc-url sepolia --chain sepolia --broadcast
+/// @dev cli for MegaETH testnet:  forge script script/TreasurySend.s.sol --rpc-url megatest --chain 6343 --broadcast
 contract TreasurySend is Script {
     uint256 privateKey;
 
@@ -20,13 +19,13 @@ contract TreasurySend is Script {
     TreasuryV1 treasury;
 
     // Constants for transfer
-    address constant RECIPIENT = address(0xeeFbdAe2b62F9A1639bCBa81A7E76e84B2C6813B);
-    uint256 constant AMOUNT = 2e6 * 1e12;
+    address constant RECIPIENT = address(0x5000Ff6Cc1864690d947B864B9FB0d603E8d1F1A);
+    uint256 constant AMOUNT = 12947371 * 1e12;
 
     function setUp() public {
-        if (block.chainid == 11155111) {
-            privateKey = vm.envUint("SEPOLIA_DEPLOYER_PRIVATE_KEY");
-        } else if (block.chainid != 1) {
+        if (block.chainid == 6343) {
+            privateKey = vm.envUint("MEGAETH_DEPLOYER_PRIVATE_KEY");
+        } else if (block.chainid != 6342) {
             revert("Network not supported");
         }
 
@@ -39,7 +38,7 @@ contract TreasurySend is Script {
         require(RECIPIENT != address(0), "Invalid recipient address");
         require(AMOUNT > 0, "Amount must be greater than 0");
 
-        if (block.chainid == 1) vm.startBroadcast();
+        if (block.chainid == 6342) vm.startBroadcast();
         else vm.startBroadcast(privateKey);
 
         // Check treasury balance before transfer

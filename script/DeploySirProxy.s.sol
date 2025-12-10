@@ -6,8 +6,7 @@ import "forge-std/Script.sol";
 import {SirProxy} from "src/SirProxy.sol";
 
 /**
- * @dev cli for local testnet:  forge script script/DeploySirProxy.s.sol --rpc-url mainnet --chain 1 --broadcast --slow --verify --ledger --hd-paths PATHS --etherscan-api-key YOUR_KEY
- * @dev cli for Sepolia:        forge script script/DeploySirProxy.s.sol --rpc-url sepolia --chain sepolia --broadcast
+ * @dev cli for MegaETH testnet:  forge script script/DeploySirProxy.s.sol --rpc-url megatest --chain 6343 --broadcast
  */
 contract DeploySirProxy is Script {
     uint256 deployerPrivateKey;
@@ -15,9 +14,9 @@ contract DeploySirProxy is Script {
     address public assistant;
 
     function setUp() public {
-        if (block.chainid == 11155111) {
-            deployerPrivateKey = vm.envUint("SEPOLIA_DEPLOYER_PRIVATE_KEY");
-        } else if (block.chainid != 1) {
+        if (block.chainid == 6343) {
+            deployerPrivateKey = vm.envUint("MEGAETH_DEPLOYER_PRIVATE_KEY");
+        } else if (block.chainid != 6342) {
             revert("Network not supported");
         }
 
@@ -25,7 +24,7 @@ contract DeploySirProxy is Script {
     }
 
     function run() public {
-        if (block.chainid == 1) vm.startBroadcast();
+        if (block.chainid == 6342) vm.startBroadcast();
         else vm.startBroadcast(deployerPrivateKey);
 
         // Deploy SirProxy

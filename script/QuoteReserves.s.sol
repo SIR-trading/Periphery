@@ -7,6 +7,8 @@ import {IVault} from "core/interfaces/IVault.sol";
 import {Assistant} from "src/Assistant.sol";
 import {SirStructs} from "core/libraries/SirStructs.sol";
 
+/** @dev cli for MegaETH testnet:  forge script script/QuoteReserves.s.sol --rpc-url megatest --chain 6343 --broadcast
+*/
 contract QuoteReserves is Script {
     uint256 privateKey;
 
@@ -14,11 +16,9 @@ contract QuoteReserves is Script {
     Assistant public assistant;
 
     function setUp() public {
-        if (block.chainid == 1) {
-            privateKey = vm.envUint("TARP_TESTNET_PRIVATE_KEY");
-        } else if (block.chainid == 11155111) {
-            privateKey = vm.envUint("SEPOLIA_DEPLOYER_PRIVATE_KEY");
-        } else {
+        if (block.chainid == 6343) {
+            privateKey = vm.envUint("MEGAETH_DEPLOYER_PRIVATE_KEY");
+        } else if (block.chainid != 6342) {
             revert("Network not supported");
         }
 
@@ -26,9 +26,6 @@ contract QuoteReserves is Script {
         assistant = Assistant(vm.envAddress("ASSISTANT"));
     }
 
-    /** cli for local testnet:  forge script script/QuoteReserves.s.sol --rpc-url tarp_testnet --broadcast --legacy
-        cli for Sepolia:        forge script script/QuoteReserves.s.sol --rpc-url sepolia --chain sepolia --broadcast
-     */
     function run() public {
         vm.startBroadcast(privateKey);
 
