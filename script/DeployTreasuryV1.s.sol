@@ -7,7 +7,7 @@ import {TreasuryV1} from "src/TreasuryV1.sol";
 
 import "forge-std/Script.sol";
 
-/// @dev cli for MegaETH testnet:  forge script script/DeployTreasuryV1.s.sol --rpc-url megatest --broadcast --private-key $PRIVATE_KEY -skip-simulation --gas-price 1000000 --gas-limit 2000000
+/// @dev cli for MegaETH testnet:  forge script script/DeployTreasuryV1.s.sol --rpc-url megatest --broadcast --private-key $PRIVATE_KEY --skip-simulation --gas-price 1000000 --gas-limit 9000000
 contract DeployTreasuryV1 is Script {
     function setUp() public {}
 

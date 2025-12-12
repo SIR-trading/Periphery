@@ -44,8 +44,10 @@ contract Assistant {
         SIR_ORACLE = IOracle(oracle);
         UNISWAPV3_FACTORY = uniswapV3Factory;
 
-        if (block.chainid == 6342) UNISWAPV3_QUOTER = IQuoter(address(0)); // MegaETH mainnet - TBD
-        else if (block.chainid == 6343) UNISWAPV3_QUOTER = IQuoter(0xCEe153bd81dB8a2d6F93fCCEb4A9af26FC36ce49); // MegaETH testnet
+        if (block.chainid == 6342)
+            UNISWAPV3_QUOTER = IQuoter(address(0)); // MegaETH mainnet - TBD
+        else if (block.chainid == 6343)
+            UNISWAPV3_QUOTER = IQuoter(0x4743344376FAECC87Abf12dAC9128C0aeB412236); // MegaETH testnet
         else revert("Network not supported");
     }
 

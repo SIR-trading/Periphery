@@ -5,41 +5,33 @@ import "forge-std/Script.sol";
 
 import {Assistant} from "src/Assistant.sol";
 import {IVault} from "core/interfaces/IVault.sol";
-import {AddressesMegaETH} from "core/libraries/AddressesMegaETH.sol";
 import {AddressesMegaETHTest} from "core/libraries/AddressesMegaETHTest.sol";
 
-/**
- * @dev cli for MegaETH testnet:  forge script script/DeployAssistant.s.sol --rpc-url megatest --chain 6343 --broadcast
+/** @dev Run with:
+        forge script script/DeployAssistant.s.sol --rpc-url megatest --broadcast --private-key $PRIVATE_KEY \
+        --skip-simulation --gas-price 10000000 --priority-gas-price 1000000 --gas-limit 1000000000 --slow
+    @dev If forge script fails, use forge create:
+        forge create src/Assistant.sol:Assistant --rpc-url megatest --private-key $PRIVATE_KEY \
+        --gas-price 10000000 --priority-gas-price 1000000 --gas-limit 1000000000 --broadcast \
+        --constructor-args $VAULT $ORACLE $UNISWAP_V3_FACTORY
  */
 contract DeployAssistant is Script {
-    uint256 deployerPrivateKey;
-
-    IVault public vault;
+    IVault public vault = IVault(0xDe23e9DCeBf6edadae4822B921363E640bb9B718);
     address public oracle;
 
     function setUp() public {
-        if (block.chainid == 6343) {
-            deployerPrivateKey = vm.envUint("MEGAETH_DEPLOYER_PRIVATE_KEY");
-        } else if (block.chainid != 6342) {
-            revert("Network not supported");
+        if (block.chainid != 6343) {
+            revert("Only MegaETH testnet (chain 6343) is currently supported");
         }
 
-        vault = IVault(vm.envAddress("VAULT"));
         oracle = vault.ORACLE();
     }
 
     function run() public {
-        if (block.chainid == 6342) vm.startBroadcast();
-        else vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Deploy assistant
-        address assistant = address(
-            new Assistant(
-                address(vault),
-                oracle,
-                block.chainid == 6342 ? AddressesMegaETH.ADDR_UNISWAPV3_FACTORY : AddressesMegaETHTest.ADDR_UNISWAPV3_FACTORY
-            )
-        );
+        address assistant = address(new Assistant(address(vault), oracle, AddressesMegaETHTest.ADDR_UNISWAPV3_FACTORY));
         console.log("Assistant deployed at: ", assistant);
 
         vm.stopBroadcast();
