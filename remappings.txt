@@ -1,5 +1,6 @@
 core/=lib/Core/src/
 v3-periphery/contracts/=lib/view-quoter-v3/lib/v3-periphery/contracts/
+v3-periphery/libraries/=lib/Core/lib/v3-periphery/contracts/libraries/
 v3-periphery/=lib/Core/lib/v3-periphery/contracts/
 v3-core/contracts/=lib/view-quoter-v3/lib/v3-core/contracts/
 v3-core/interfaces/=lib/Core/lib/v3-core/contracts/interfaces/

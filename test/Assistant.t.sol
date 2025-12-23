@@ -41,8 +41,8 @@ contract AssistantTest is Test {
 
     uint256 constant SLOT_TEA_SUPPLY = 4;
     uint256 constant SLOT_APE_SUPPLY = 5;
-    uint256 constant SLOT_VAULT_STATE = 9;
-    uint256 constant SLOT_RESERVES_TOTAL = 10;
+    uint256 constant SLOT_VAULT_STATE = 10;
+    uint256 constant SLOT_RESERVES_TOTAL = 11;
 
     IWETH9 private constant WETH = IWETH9(AddressesMegaETHTest.ADDR_WETH);
     IERC20 private constant USDC = IERC20(AddressesMegaETHTest.ADDR_USDC);
@@ -66,7 +66,7 @@ contract AssistantTest is Test {
         vm.createSelectFork("megatest");
 
         // Deploy oracle
-        address oracle = address(new Oracle(AddressesMegaETHTest.ADDR_UNISWAPV3_FACTORY));
+        address oracle = address(new Oracle(AddressesMegaETHTest.ADDR_UNISWAPV3_FACTORY, AddressesMegaETHTest.POOL_INIT_CODE_HASH));
 
         // Deploy SystemControl
         address systemControl = address(new SystemControl());
@@ -89,8 +89,8 @@ contract AssistantTest is Test {
         // Initialize SystemControl
         SystemControl(systemControl).initialize(address(vault), sir);
 
-        // Deploy Assistant
-        assistant = new Assistant(address(vault), oracle, AddressesMegaETHTest.ADDR_UNISWAPV3_FACTORY);
+        // Deploy Assistant (factory and init hash are fetched from oracle)
+        assistant = new Assistant(address(vault), oracle);
 
         // Approve Assistant to spend WETH
         WETH.approve(address(vault), type(uint256).max);

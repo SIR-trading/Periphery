@@ -9,7 +9,11 @@
       "Bash(git -C lib/Core fetch origin)",
       "Bash(git -C lib/Core checkout megaeth)",
       "Bash(cat:*)",
-      "Bash(forge script:*)"
+      "Bash(forge script:*)",
+      "Bash(cast send:*)",
+      "Bash(echo:*)",
+      "Bash(mkdir:*)",
+      "Bash(git pull:*)"
     ],
     "deny": [],
     "ask": []

@@ -13,7 +13,7 @@ import {AddressesMegaETHTest} from "core/libraries/AddressesMegaETHTest.sol";
     @dev If forge script fails, use forge create:
         forge create src/Assistant.sol:Assistant --rpc-url megatest --private-key $PRIVATE_KEY \
         --gas-price 10000000 --priority-gas-price 1000000 --gas-limit 1000000000 --broadcast \
-        --constructor-args $VAULT $ORACLE $UNISWAP_V3_FACTORY
+        --constructor-args $VAULT $ORACLE
  */
 contract DeployAssistant is Script {
     IVault public vault = IVault(0xDe23e9DCeBf6edadae4822B921363E640bb9B718);
@@ -30,8 +30,8 @@ contract DeployAssistant is Script {
     function run() public {
         vm.startBroadcast();
 
-        // Deploy assistant
-        address assistant = address(new Assistant(address(vault), oracle, AddressesMegaETHTest.ADDR_UNISWAPV3_FACTORY));
+        // Deploy assistant (factory and init hash are fetched from oracle)
+        address assistant = address(new Assistant(address(vault), oracle));
         console.log("Assistant deployed at: ", assistant);
 
         vm.stopBroadcast();

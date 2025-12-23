@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 // Interfaces
-import {IQuoter} from "./interfaces/IQuoter.sol";
 import {IVault} from "core/interfaces/IVault.sol";
 import {IOracle} from "core/interfaces/IOracle.sol";
 import {IUniswapV3Pool} from "v3-core/interfaces/IUniswapV3Pool.sol";
@@ -15,17 +14,16 @@ import {IWETH9, IERC20} from "core/interfaces/IWETH9.sol";
 import {UniswapPoolAddress} from "core/libraries/UniswapPoolAddress.sol";
 import {AddressClone} from "core/libraries/AddressClone.sol";
 import {TickMath} from "v3-core/libraries/TickMath.sol";
+import {Quoter} from "./quoter/Quoter.sol";
 
 import "forge-std/console.sol";
 
 /**
  * @notice Helper functions for SIR protocol
  */
-contract Assistant {
+contract Assistant is Quoter {
     IVault public immutable VAULT;
-    IOracle private immutable SIR_ORACLE;
-    address private immutable UNISWAPV3_FACTORY;
-    IQuoter private immutable UNISWAPV3_QUOTER;
+    IOracle public immutable SIR_ORACLE;
 
     error VaultDoesNotExist();
     error AmountTooLow();
@@ -39,16 +37,12 @@ contract Assistant {
         VaultAlreadyExists
     }
 
-    constructor(address vault, address oracle, address uniswapV3Factory) {
+    constructor(
+        address vault,
+        address oracle
+    ) Quoter(IOracle(oracle).UNISWAPV3_FACTORY(), IOracle(oracle).POOL_INIT_CODE_HASH()) {
         VAULT = IVault(vault);
         SIR_ORACLE = IOracle(oracle);
-        UNISWAPV3_FACTORY = uniswapV3Factory;
-
-        if (block.chainid == 6342)
-            UNISWAPV3_QUOTER = IQuoter(address(0)); // MegaETH mainnet - TBD
-        else if (block.chainid == 6343)
-            UNISWAPV3_QUOTER = IQuoter(0x4743344376FAECC87Abf12dAC9128C0aeB412236); // MegaETH testnet
-        else revert("Network not supported");
     }
 
     /**
@@ -248,8 +242,8 @@ contract Assistant {
         uint24 feeTier = SIR_ORACLE.uniswapFeeTierOf(vaultParams.debtToken, vaultParams.collateralToken);
 
         // Quote Uniswap v3
-        (amountCollateral, , , ) = UNISWAPV3_QUOTER.quoteExactInputSingle(
-            IQuoter.QuoteExactInputSingleParams({
+        (amountCollateral, , , ) = _quoteExactInputSingle(
+            QuoteExactInputSingleParams({
                 tokenIn: vaultParams.debtToken,
                 tokenOut: vaultParams.collateralToken,
                 amountIn: amountDebtToken,
@@ -384,10 +378,10 @@ contract Assistant {
         secondsAgos[0] = 1800; // 30 minutes (TWAP_DURATION from Oracle)
         secondsAgos[1] = 0;
 
-        int56[] memory tickCumulatives;
+        int24 arithmeticMeanTick;
 
-        try pool.observe(secondsAgos) returns (int56[] memory tickCumulatives_, uint160[] memory) {
-            tickCumulatives = tickCumulatives_;
+        try pool.observe(secondsAgos) returns (int56[] memory tickCumulatives, uint160[] memory) {
+            arithmeticMeanTick = int24((tickCumulatives[1] - tickCumulatives[0]) / int56(uint56(secondsAgos[0])));
         } catch {
             // If 30-minute TWAP not available, try to get the oldest available observation
             // This mimics Oracle's fallback behavior
@@ -396,46 +390,34 @@ contract Assistant {
             if (observationCardinality > 1) {
                 // Get oldest observation
                 uint32 oldestObservationSeconds;
-                int56 oldestTickCumulative;
                 bool initialized;
 
                 // Try to get the oldest initialized observation
                 uint16 oldestIndex = (observationIndex + 1) % observationCardinality;
-                (oldestObservationSeconds, oldestTickCumulative, , initialized) = pool.observations(oldestIndex);
+                (oldestObservationSeconds, , , initialized) = pool.observations(oldestIndex);
 
                 if (!initialized) {
                     // Fallback to index 0 which is always initialized
-                    (oldestObservationSeconds, oldestTickCumulative, , ) = pool.observations(0);
+                    (oldestObservationSeconds, , , ) = pool.observations(0);
                 }
 
                 // Calculate time difference
                 uint32 timeElapsed = uint32(block.timestamp) - oldestObservationSeconds;
 
                 if (timeElapsed > 0) {
-                    // Get current observation
+                    // Get current observation using the available time window
                     secondsAgos[0] = timeElapsed;
-                    tickCumulatives = new int56[](2);
-                    (tickCumulatives, ) = pool.observe(secondsAgos);
+                    (int56[] memory tickCumulatives, ) = pool.observe(secondsAgos);
+                    arithmeticMeanTick = int24((tickCumulatives[1] - tickCumulatives[0]) / int56(uint56(timeElapsed)));
                 } else {
                     // Use spot price if no TWAP available
-                    (, int24 currentTick, , , , , ) = pool.slot0();
-                    tickCumulatives = new int56[](2);
-                    tickCumulatives[0] = currentTick;
-                    tickCumulatives[1] = currentTick;
-                    secondsAgos[0] = 1; // Avoid division by zero
+                    (, arithmeticMeanTick, , , , , ) = pool.slot0();
                 }
             } else {
                 // Use spot price if cardinality is 1
-                (, int24 currentTick, , , , , ) = pool.slot0();
-                tickCumulatives = new int56[](2);
-                tickCumulatives[0] = currentTick;
-                tickCumulatives[1] = currentTick;
-                secondsAgos[0] = 1; // Avoid division by zero
+                (, arithmeticMeanTick, , , , , ) = pool.slot0();
             }
         }
-
-        // Calculate average tick over the period
-        int24 arithmeticMeanTick = int24((tickCumulatives[1] - tickCumulatives[0]) / int56(uint56(secondsAgos[0])));
 
         // Convert tick to price
         // The price is in terms of token1/token0 in the pool
@@ -512,8 +494,9 @@ contract Assistant {
         return
             UniswapPoolAddress
                 .computeAddress(
-                    UNISWAPV3_FACTORY,
-                    UniswapPoolAddress.getPoolKey(vaultParams.collateralToken, vaultParams.debtToken, feeTier)
+                    UNISWAP_V3_FACTORY,
+                    UniswapPoolAddress.getPoolKey(vaultParams.collateralToken, vaultParams.debtToken, feeTier),
+                    POOL_INIT_CODE_HASH
                 )
                 .code
                 .length != 0;

@@ -47,7 +47,7 @@ contract TreasuryV1Test is Test {
         // --------------------- Core ---------------------
 
         // Deploy oracle
-        address oracle = address(new Oracle(AddressesMegaETHTest.ADDR_UNISWAPV3_FACTORY));
+        address oracle = address(new Oracle(AddressesMegaETHTest.ADDR_UNISWAPV3_FACTORY, AddressesMegaETHTest.POOL_INIT_CODE_HASH));
 
         // Deploy SystemControl
         address systemControl = address(new SystemControl());
