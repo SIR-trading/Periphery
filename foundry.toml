@@ -6,6 +6,9 @@ fs_permissions = [{ access = "read-write", path = "./"}]
 # solc = "0.8.15"
 evm_version = "cancun"
 
+[lint]
+lint_on_build = false  # Disable solar linter due to Core library import resolution issues
+
 [fuzz]
 runs = 100
 seed = "0x02"

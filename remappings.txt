@@ -1,4 +1,5 @@
 core/=lib/Core/src/
+lib/clones-with-immutable-args/=lib/Core/lib/clones-with-immutable-args/
 v3-periphery/contracts/=lib/view-quoter-v3/lib/v3-periphery/contracts/
 v3-periphery/libraries/=lib/Core/lib/v3-periphery/contracts/libraries/
 v3-periphery/=lib/Core/lib/v3-periphery/contracts/

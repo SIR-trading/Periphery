@@ -13,7 +13,11 @@
       "Bash(cast send:*)",
       "Bash(echo:*)",
       "Bash(mkdir:*)",
-      "Bash(git pull:*)"
+      "Bash(git pull:*)",
+      "Bash(forge config --help:*)",
+      "WebSearch",
+      "Bash(forge --version:*)",
+      "WebFetch(domain:getfoundry.sh)"
     ],
     "deny": [],
     "ask": []
