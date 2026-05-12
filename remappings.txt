@@ -10,4 +10,6 @@ v2-core/=lib/Core/lib/v2-core/contracts/
 solmate/=lib/solmate/src/
 openzeppelin/=lib/Core/lib/openzeppelin-contracts/contracts/
 @openzeppelin/=lib/Core/lib/openzeppelin-contracts/
+@openzeppelin-v3/=lib/v3-staker/node_modules/@openzeppelin/
 oz-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
+v3-staker/=lib/v3-staker/contracts/

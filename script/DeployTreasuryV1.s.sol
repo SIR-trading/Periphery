@@ -7,9 +7,19 @@ import {TreasuryV1} from "src/TreasuryV1.sol";
 
 import "forge-std/Script.sol";
 
-/// @dev cli for MegaETH testnet:  forge script script/DeployTreasuryV1.s.sol --rpc-url megatest --broadcast --private-key $PRIVATE_KEY --skip-simulation --gas-price 1000000 --gas-limit 9000000
+/** @dev cli for MegaETH testnet:
+        forge script script/DeployTreasuryV1.s.sol --rpc-url megatest --broadcast --private-key $PRIVATE_KEY --skip-simulation \
+        --gas-price 10000000 --priority-gas-price 1000000 --gas-limit 5000000000 --code-size-limit 52428
+    @dev cli for MegaETH mainnet:
+        forge script script/DeployTreasuryV1.s.sol --rpc-url megaeth --broadcast --ledger --hd-paths $HD_PATH  \
+        --gas-price 1200000 --priority-gas-price 100000 --gas-limit 5000000000 --skip-simulation
+*/
 contract DeployTreasuryV1 is Script {
-    function setUp() public {}
+    function setUp() public {
+        if (block.chainid != 6343 && block.chainid != 4326) {
+            revert("Only MegaETH is currently supported");
+        }
+    }
 
     function run() public {
         vm.startBroadcast();

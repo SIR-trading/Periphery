@@ -35,7 +35,7 @@ contract SirProxy {
      * @return The name from the SIR token contract
      */
     function name() external pure returns (string memory) {
-        return "Proxy SIR for offchain operations";
+        return "Proxy MegaSIR for offchain operations";
     }
 
     /**

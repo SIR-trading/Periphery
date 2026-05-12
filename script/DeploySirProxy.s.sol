@@ -5,27 +5,26 @@ import "forge-std/Script.sol";
 
 import {SirProxy} from "src/SirProxy.sol";
 
-/**
- * @dev cli for MegaETH testnet:  forge script script/DeploySirProxy.s.sol --rpc-url megatest --chain 6343 --broadcast
- */
+/** @dev cli for MegaETH testnet:
+        forge script script/DeploySirProxy.s.sol --rpc-url megatest --broadcast --private-key $PRIVATE_KEY --skip-simulation \
+        --gas-price 10000000 --priority-gas-price 1000000 --gas-limit 5000000000
+    @dev cli for MegaETH mainnet:
+        forge script script/DeploySirProxy.s.sol --rpc-url megaeth --broadcast --ledger --hd-paths $HD_PATH \
+        --gas-price 1200000 --priority-gas-price 100000 --gas-limit 5000000000 --skip-simulation
+*/
 contract DeploySirProxy is Script {
-    uint256 deployerPrivateKey;
-
     address public assistant;
 
     function setUp() public {
-        if (block.chainid == 6343) {
-            deployerPrivateKey = vm.envUint("MEGAETH_DEPLOYER_PRIVATE_KEY");
-        } else if (block.chainid != 6342) {
-            revert("Network not supported");
+        if (block.chainid != 6343 && block.chainid != 4326) {
+            revert("Only MegaETH is currently supported");
         }
 
         assistant = vm.envAddress("ASSISTANT");
     }
 
     function run() public {
-        if (block.chainid == 6342) vm.startBroadcast();
-        else vm.startBroadcast(deployerPrivateKey);
+        vm.startBroadcast();
 
         // Deploy SirProxy
         address sirProxy = address(new SirProxy(assistant));
