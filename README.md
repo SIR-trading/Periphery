@@ -34,5 +34,5 @@ paste (or `forge verify-contract <addr> src/Disperse.sol:Disperse ...`) and reso
 | Chain          | Disperse Address                                                                                                       |
 | -------------- | --------------------------------------------------------------------------------------------------------------------- |
 | Ethereum (1)   | [0xD152f549545093347A162Dce210e7293f1452150](https://etherscan.io/address/0xD152f549545093347A162Dce210e7293f1452150) (canonical, reused) |
-| HyperEVM (999) | _pending deploy_                                                                                                       |
-| MegaETH (4326) | _pending deploy_                                                                                                       |
+| HyperEVM (999) | [0x77Eb73e3496E1c9C29478471C8aDaB93Be6D1209](https://hyperevmscan.io/address/0x77Eb73e3496E1c9C29478471C8aDaB93Be6D1209) |
+| MegaETH (4326) | [0x2ed4f1C6629FE64Ce3f78535109792544133344B](https://mega.etherscan.io/address/0x2ed4f1C6629FE64Ce3f78535109792544133344B) |
