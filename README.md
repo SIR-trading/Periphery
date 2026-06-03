@@ -17,3 +17,23 @@ The `TreasuryV1` contract is the initial implementation of the Treasury for the 
 | -------------- | --------------------------------------------------------------------------------------------------------------------- |
 | TreasuryV1.sol | [0x686748764c5C7Aa06FEc784E60D14b650bF79129](https://etherscan.io/address/0x686748764c5C7Aa06FEc784E60D14b650bF79129) |
 | Assistant.sol  | [0x8e141368a00244A17724F76E682518DD9286cCb3](https://etherscan.io/address/0x8e141368a00244A17724F76E682518DD9286cCb3) | -->
+
+## Disperse (multisend)
+
+`src/Disperse.sol` batch-distributes ETH or ERC20 tokens to many recipients in one transaction
+(`disperseToken(token, recipients[], values[])`), used to pay out leaderboard prizes. It is a Solidity
+0.8 reimplementation of the canonical [Disperse](https://etherscan.io/address/0xD152f549545093347A162Dce210e7293f1452150)
+by banteg and keeps its **exact function selectors** (`disperseToken` = `0xc73a2d60`,
+`disperseTokenSimple` = `0x51ba162c`, `disperseEther` = `0xe63d38ed`), so it is ABI-compatible with the
+canonical contract and with disperse.app tooling.
+
+Ethereum reuses the canonical deployment. On HyperEVM we deploy our own copy via
+`script/DeployDisperse.s.sol` (the MegaETH deployment lives on the `megaeth` branch). The contract has no
+imports, so explorer verification on hyperevmscan.io is a single-file paste (or
+`forge verify-contract <addr> src/Disperse.sol:Disperse ...`) and resolves to a full exact match.
+
+| Chain          | Disperse Address                                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Ethereum (1)   | [0xD152f549545093347A162Dce210e7293f1452150](https://etherscan.io/address/0xD152f549545093347A162Dce210e7293f1452150) (canonical, reused) |
+| HyperEVM (999) | _pending deploy_                                                                                                       |
+| MegaETH (4326) | _pending deploy_                                                                                                       |
